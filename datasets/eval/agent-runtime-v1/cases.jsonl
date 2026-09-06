@@ -1,0 +1,12 @@
+{"case_id":"L05-001","scenario":"within_budget","description":"正常查询两次，预算仍有剩余","expected":{"used_calls":2,"executed_calls":2}}
+{"case_id":"L05-002","scenario":"single_round","description":"模拟一轮模型提出100次调用，最多实际执行5次","expected":{"used_calls":5,"executed_calls":5,"blocked_calls":95}}
+{"case_id":"L05-003","scenario":"multiple_rounds","description":"三轮各提出3次，预算跨轮累计","expected":{"used_calls":5,"executed_calls":5,"blocked_calls":4}}
+{"case_id":"L05-004","scenario":"switch_tool","description":"耗尽后切换工具与参数仍受同一预算约束","expected":{"used_calls":5,"executed_calls":5,"blocked_calls":2}}
+{"case_id":"L05-005","scenario":"charged_failure","description":"模拟上游失败仍消耗一次调用额度","expected":{"used_calls":2,"executed_calls":2,"upstream_errors":1}}
+{"case_id":"L05-006","scenario":"forged_task","description":"模型参数中夹带任务身份或预算被拒绝","expected":{"http_status":422,"used_calls":0}}
+{"case_id":"L05-007","scenario":"owner_isolation","description":"另一用户不能管理或读取本任务","expected":{"http_status":404}}
+{"case_id":"L05-008","scenario":"cancel_late_action","description":"取消后到达的工具调用与保存动作不再执行","expected":{"status":"cancelled","used_calls":1,"result":null}}
+{"case_id":"L05-009","scenario":"resume_unknown_result","description":"保存完成但响应丢失，查询与重放返回原业务结果","expected":{"same_result_id":true,"commit_events":1,"replayed":true}}
+{"case_id":"L05-010","scenario":"changed_action","description":"恢复时模型产生不同推荐，不能覆盖原待执行动作","expected":{"http_status":409,"original_action_preserved":true}}
+{"case_id":"L05-011","scenario":"context_revision_changed","description":"待执行动作的数据revision已变化，停止保存并要求复核","expected":{"http_status":409,"result":null}}
+{"case_id":"L05-012","scenario":"concurrent_budget","description":"多个请求争用最后额度，数据库原子准入仍不超预算","expected":{"used_calls":5,"executed_calls":5}}

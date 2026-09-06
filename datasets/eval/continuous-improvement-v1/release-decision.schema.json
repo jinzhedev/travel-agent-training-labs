@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuous improvement release decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidate_id", "release_action", "blocking_reasons", "evidence_level"],
+  "properties": {
+    "candidate_id": {"type": "string", "pattern": "^release-(current|candidate-[a-z-]+)$"},
+    "release_action": {"enum": ["retain_current", "block_offline", "advance_canary", "rerun_controlled", "not_scored"]},
+    "blocking_reasons": {
+      "type": "array",
+      "items": {"enum": ["hard_gate_failed", "slice_regression", "change_not_attributable", "judge_not_calibrated", "none"]},
+      "uniqueItems": true
+    },
+    "evidence_level": {"const": "offline_only"}
+  }
+}

@@ -1,0 +1,486 @@
+{
+  "title": "厦门文旅服务指南",
+  "revision": "xiamen-document-ai-v1.0.1",
+  "source": "课程合成数据；地名真实，规则模拟",
+  "observed_at": "2026-08-23",
+  "valid_until": "2026-09-30",
+  "is_simulated": true,
+  "pages": [
+    {
+      "page": 1,
+      "document_id": "XM-GUIDE-001",
+      "paragraph_ids": [
+        "NOTICE"
+      ],
+      "table_id": "VENUE-TABLE",
+      "heading": "场馆开放与无障碍服务",
+      "paragraphs": [
+        "本页列出各场馆的开放时间、停止入馆时间及无障碍设施。"
+      ],
+      "table": {
+        "caption": "表 1 场馆开放与服务",
+        "headers": [
+          "场馆",
+          "类型",
+          "无障碍设施",
+          "开放规则",
+          "开放时间",
+          "停止入馆"
+        ],
+        "rows": [
+          [
+            "厦门市博物馆",
+            "室内",
+            "无障碍入口、电梯",
+            "周一闭馆",
+            "09:00–17:00",
+            "16:30"
+          ],
+          [
+            "华侨博物院",
+            "室内",
+            "无障碍入口",
+            "周一开放",
+            "09:00–17:30",
+            "17:00"
+          ],
+          [
+            "厦门园林植物园游客中心",
+            "室内服务点",
+            "无障碍入口",
+            "每日开放",
+            "08:00–18:00",
+            "17:30"
+          ]
+        ],
+        "footnote": "临时闭馆及开放时间调整以场馆当日公告为准。"
+      },
+      "object_annotations": {
+        "NOTICE": {
+          "entities": [],
+          "fine_grained_ids": []
+        },
+        "VENUE-TABLE": {
+          "entities": [
+            "厦门市博物馆",
+            "华侨博物院",
+            "厦门园林植物园游客中心"
+          ],
+          "fine_grained_ids": [
+            "P1-T1-R1-C4",
+            "P1-T1-R1-C6",
+            "P1-T1-R2-C4",
+            "P1-T1-R2-C6",
+            "P1-T1-R3-C4",
+            "P1-T1-R3-C6"
+          ]
+        }
+      }
+    },
+    {
+      "page": 2,
+      "document_id": "XM-GUIDE-001",
+      "paragraph_ids": [
+        "NOTICE"
+      ],
+      "table_id": "FERRY-TABLE",
+      "heading": "轮渡班次与到达建议",
+      "paragraphs": [
+        "请按出行日期查看班次，并预留检票和登船时间。"
+      ],
+      "table": {
+        "caption": "表 2 轮渡服务表",
+        "headers": [
+          "日期类型",
+          "首班",
+          "末班",
+          "停止检票",
+          "轮椅旅客建议提前"
+        ],
+        "rows": [
+          [
+            "工作日",
+            "07:10",
+            "18:30",
+            "开航前 20 分钟",
+            "30 分钟到达"
+          ],
+          [
+            "周末及节假日",
+            "07:00",
+            "19:30",
+            "开航前 20 分钟",
+            "40 分钟到达"
+          ]
+        ],
+        "footnote": "大风预警达到橙色或红色时停航，行程调整按大风预警处置流程办理。"
+      },
+      "object_annotations": {
+        "NOTICE": {
+          "entities": [
+            "轮渡"
+          ],
+          "fine_grained_ids": []
+        },
+        "FERRY-TABLE": {
+          "entities": [
+            "轮渡",
+            "轮椅旅客"
+          ],
+          "fine_grained_ids": [
+            "P2-T1-R1-C3",
+            "P2-T1-R1-C4",
+            "P2-T1-R1-C5",
+            "P2-T1-R2-C3",
+            "P2-T1-R2-C4",
+            "P2-T1-R2-C5"
+          ]
+        }
+      }
+    },
+    {
+      "page": 3,
+      "document_id": "XM-GUIDE-001",
+      "paragraph_ids": [
+        "NOTICE"
+      ],
+      "diagram_id": "WIND-FLOW",
+      "diagram_caption": "图 1 大风预警处置流程",
+      "heading": "大风预警处置流程",
+      "rendering": "embedded_raster_image_requires_ocr_and_relation_recovery",
+      "paragraphs": [
+        "出行前查询大风预警，并按预警级别调整轮渡及岛上行程。"
+      ],
+      "flowchart": {
+        "nodes": [
+          {
+            "id": "N1",
+            "label": "查询实时预警",
+            "type": "start"
+          },
+          {
+            "id": "N2",
+            "label": "预警级别",
+            "type": "decision"
+          },
+          {
+            "id": "N3",
+            "label": "维持计划并记录查询时间",
+            "type": "process"
+          },
+          {
+            "id": "N4",
+            "label": "减少户外项目并复查班次",
+            "type": "process"
+          },
+          {
+            "id": "N5",
+            "label": "停止轮渡与岛上行程",
+            "type": "process"
+          },
+          {
+            "id": "N6",
+            "label": "检查是否已有票务占位",
+            "type": "decision"
+          },
+          {
+            "id": "N7",
+            "label": "取消占位并核验最终状态",
+            "type": "process"
+          },
+          {
+            "id": "N8",
+            "label": "改排室内行程",
+            "type": "end"
+          }
+        ],
+        "edges": [
+          {
+            "from": "N1",
+            "to": "N2",
+            "condition": null
+          },
+          {
+            "from": "N2",
+            "to": "N3",
+            "condition": "无预警"
+          },
+          {
+            "from": "N2",
+            "to": "N4",
+            "condition": "黄色"
+          },
+          {
+            "from": "N2",
+            "to": "N5",
+            "condition": "橙色或红色"
+          },
+          {
+            "from": "N5",
+            "to": "N6",
+            "condition": null
+          },
+          {
+            "from": "N6",
+            "to": "N7",
+            "condition": "已有占位"
+          },
+          {
+            "from": "N6",
+            "to": "N8",
+            "condition": "没有占位"
+          },
+          {
+            "from": "N7",
+            "to": "N8",
+            "condition": "核验完成"
+          }
+        ]
+      },
+      "object_annotations": {
+        "NOTICE": {
+          "entities": [],
+          "fine_grained_ids": []
+        },
+        "WIND-FLOW": {
+          "entities": [
+            "停止轮渡与岛上行程",
+            "取消占位并核验最终状态",
+            "改排室内行程"
+          ],
+          "fine_grained_ids": [
+            "P3-F1-E3",
+            "P3-F1-E4",
+            "P3-F1-E6",
+            "P3-F1-E7",
+            "P3-F1-E8"
+          ]
+        }
+      }
+    },
+    {
+      "page": 4,
+      "document_id": "XM-GUIDE-001",
+      "paragraph_ids": [
+        "NOTICE"
+      ],
+      "diagram_id": "BOOKING-SEQUENCE",
+      "diagram_caption": "图 2 票务占位与人工确认交互",
+      "heading": "票务占位与人工确认交互",
+      "rendering": "embedded_raster_image_requires_ocr_and_relation_recovery",
+      "paragraphs": [
+        "票务办理涉及报价、短时占位、人工确认和最终状态核验。"
+      ],
+      "sequence": {
+        "actors": [
+          "用户",
+          "Dify",
+          "Travel Core",
+          "Booking Mock",
+          "Human Input"
+        ],
+        "events": [
+          {
+            "sequence": 1,
+            "sender": "用户",
+            "receiver": "Dify",
+            "message": "提出含票务的行程需求",
+            "condition": null
+          },
+          {
+            "sequence": 2,
+            "sender": "Dify",
+            "receiver": "Travel Core",
+            "message": "请求只读报价",
+            "condition": null
+          },
+          {
+            "sequence": 3,
+            "sender": "Travel Core",
+            "receiver": "Booking Mock",
+            "message": "创建短时占位",
+            "condition": "报价仍有效"
+          },
+          {
+            "sequence": 4,
+            "sender": "Dify",
+            "receiver": "Human Input",
+            "message": "展示价格与退改规则",
+            "condition": "存在副作用"
+          },
+          {
+            "sequence": 5,
+            "sender": "Human Input",
+            "receiver": "Dify",
+            "message": "批准或拒绝",
+            "condition": null
+          },
+          {
+            "sequence": 6,
+            "sender": "Dify",
+            "receiver": "Travel Core",
+            "message": "提交或取消占位",
+            "condition": "携带 approval_id"
+          },
+          {
+            "sequence": 7,
+            "sender": "Travel Core",
+            "receiver": "Booking Mock",
+            "message": "查询最终状态",
+            "condition": "提交超时或返回不确定"
+          }
+        ]
+      },
+      "object_annotations": {
+        "NOTICE": {
+          "entities": [
+            "Dify",
+            "Travel Core",
+            "Booking Mock",
+            "Human Input"
+          ],
+          "fine_grained_ids": []
+        },
+        "BOOKING-SEQUENCE": {
+          "entities": [
+            "Dify",
+            "Travel Core",
+            "Booking Mock",
+            "Human Input"
+          ],
+          "fine_grained_ids": [
+            "P4-S1-E3",
+            "P4-S1-E4",
+            "P4-S1-E6",
+            "P4-S1-E7"
+          ]
+        }
+      }
+    },
+    {
+      "page": 5,
+      "document_id": "XM-ACCESS-001",
+      "paragraph_ids": [
+        "VENUES",
+        "FERRY"
+      ],
+      "heading": "轮椅游客服务对象",
+      "paragraphs": [
+        "厦门市博物馆和华侨博物院都属于室内无障碍场馆。厦门园林植物园仅游客中心标为无障碍，不能据此推断全部园区路线适合轮椅。",
+        "周末乘轮渡的轮椅旅客建议提前 40 分钟到达。"
+      ],
+      "object_annotations": {
+        "VENUES": {
+          "entities": [
+            "厦门市博物馆",
+            "华侨博物院"
+          ],
+          "fine_grained_ids": []
+        },
+        "FERRY": {
+          "entities": [
+            "轮椅旅客",
+            "轮渡"
+          ],
+          "fine_grained_ids": []
+        }
+      }
+    },
+    {
+      "page": 6,
+      "document_id": "XM-REFUND-2026",
+      "paragraph_ids": [
+        "STATUS"
+      ],
+      "table_id": "TABLE",
+      "heading": "轮渡退票规则（现行版）",
+      "paragraphs": [
+        "状态：现行规则；生效日期：2026-02-01。"
+      ],
+      "table": {
+        "caption": "表 3 现行退票规则",
+        "headers": [
+          "退票时间",
+          "手续费"
+        ],
+        "rows": [
+          [
+            "开航前 60 分钟以上",
+            "免手续费"
+          ],
+          [
+            "开航前 60 分钟以内",
+            "票价的 10%"
+          ]
+        ],
+        "footnote": "官方停航导致的未使用票可原路退款。"
+      },
+      "object_annotations": {
+        "STATUS": {
+          "entities": [
+            "轮渡退票规则"
+          ],
+          "fine_grained_ids": []
+        },
+        "TABLE": {
+          "entities": [
+            "轮渡退票规则"
+          ],
+          "fine_grained_ids": [
+            "P6-T1-R1-C2",
+            "P6-T1-R2-C2"
+          ]
+        }
+      }
+    },
+    {
+      "page": 7,
+      "document_id": "XM-REFUND-2025",
+      "paragraph_ids": [
+        "STATUS"
+      ],
+      "table_id": "TABLE",
+      "observed_at": "2025-05-01",
+      "valid_until": "2026-01-31",
+      "heading": "轮渡退票规则（2025 失效版）",
+      "paragraphs": [
+        "状态：已失效；失效日期：2026-01-31。"
+      ],
+      "table": {
+        "caption": "表 4 旧版退票规则",
+        "headers": [
+          "退票时间",
+          "手续费"
+        ],
+        "rows": [
+          [
+            "开航前 30 分钟以上",
+            "免手续费"
+          ],
+          [
+            "开航前 30 分钟以内",
+            "票价的 5%"
+          ]
+        ],
+        "footnote": "查询当前规则时不得把本页作为最终依据。"
+      },
+      "object_annotations": {
+        "STATUS": {
+          "entities": [
+            "轮渡退票规则"
+          ],
+          "fine_grained_ids": []
+        },
+        "TABLE": {
+          "entities": [
+            "轮渡退票规则"
+          ],
+          "fine_grained_ids": [
+            "P7-T1-R1-C2",
+            "P7-T1-R2-C2"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Continuous improvement curation case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "trace_id",
+    "expected_review_queue",
+    "expected_first_deviation_layer",
+    "expected_failure_family",
+    "expected_privacy_action",
+    "expected_dataset_action",
+    "expected_target_suite",
+    "expected_review_mode",
+    "rationale"
+  ],
+  "properties": {
+    "case_id": {"type": "string", "pattern": "^CFI-[0-9]{3}$"},
+    "trace_id": {"type": "string", "pattern": "^trace-prod-[0-9]{3}$"},
+    "expected_review_queue": {
+      "enum": ["business_outcome_review", "control_sample", "domain_review", "grader_audit", "performance_review", "privacy_review", "security_review", "tool_review"]
+    },
+    "expected_first_deviation_layer": {
+      "enum": ["none", "context", "decision", "retrieval", "routing", "action", "policy", "observation", "state", "stop"]
+    },
+    "expected_failure_family": {
+      "enum": ["none", "cohort_gap", "delayed_outcome", "efficiency_outlier", "grader_false_positive", "no_progress", "privacy_capture", "stale_evidence", "task_constraint", "tool_argument", "unauthorized_side_effect"]
+    },
+    "expected_privacy_action": {"enum": ["keep", "redact_then_review"]},
+    "expected_dataset_action": {"enum": ["do_not_promote", "link_duplicate", "promote_regression", "promote_rolling", "promote_safety", "retain_control"]},
+    "expected_target_suite": {"enum": ["end_to_end", "grader_calibration", "operations", "rag_regression", "routing_regression", "safety", "tool_regression"]},
+    "expected_review_mode": {"enum": ["judge_audit", "none", "single_run"]},
+    "rationale": {"type": "string", "minLength": 8}
+  }
+}

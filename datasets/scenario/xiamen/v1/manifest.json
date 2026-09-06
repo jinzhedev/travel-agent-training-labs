@@ -1,0 +1,12 @@
+{
+  "dataset_id": "scenario-xiamen-v1",
+  "purpose": "CP01 文旅 Agent 规划上下文与确定性校验",
+  "revision": "xiamen-v1",
+  "city": "厦门",
+  "source": "training_research_fixture",
+  "is_simulated": true,
+  "observed_at": "2026-08-21T00:00:00+08:00",
+  "valid_until": "2026-09-30T23:59:59+08:00",
+  "records": 9,
+  "notice": "课堂冻结数据，不代表景区实时营业、票价、天气、预约或交通状态。"
+}

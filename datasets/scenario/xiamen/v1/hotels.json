@@ -1,0 +1,43 @@
+{
+  "city": "厦门",
+  "source": "course_authored_training_fixture",
+  "observed_at": "2026-09-01T00:00:00+08:00",
+  "valid_until": "2026-09-30T23:59:59+08:00",
+  "is_simulated": true,
+  "revision": "xiamen-hotels-v1.0.0",
+  "hotels": [
+    {
+      "hotel_id": "xm-hotel-01",
+      "name": "厦门环岛亲子酒店",
+      "district": "思明区",
+      "near_poi": ["厦门园林植物园", "南普陀寺"],
+      "nightly_cny": 488,
+      "rooms_available": 6,
+      "room_type": "家庭房",
+      "amenities": ["早餐", "家庭房", "行李寄存"],
+      "cancellation_policy": "入住前一天 18:00 前可免费取消"
+    },
+    {
+      "hotel_id": "xm-hotel-02",
+      "name": "厦门滨海商务酒店",
+      "district": "湖里区",
+      "near_poi": ["厦门高崎国际机场", "沙坡尾艺术西区"],
+      "nightly_cny": 368,
+      "rooms_available": 9,
+      "room_type": "高级大床房",
+      "amenities": ["早餐", "停车场", "机场接送"],
+      "cancellation_policy": "入住前两天 18:00 前可免费取消"
+    },
+    {
+      "hotel_id": "xm-hotel-03",
+      "name": "厦门鼓浪屿码头酒店",
+      "district": "思明区",
+      "near_poi": ["厦门轮渡码头", "鼓浪屿"],
+      "nightly_cny": 628,
+      "rooms_available": 2,
+      "room_type": "海景双床房",
+      "amenities": ["早餐", "海景", "轮渡码头步行可达"],
+      "cancellation_policy": "不可免费取消"
+    }
+  ]
+}

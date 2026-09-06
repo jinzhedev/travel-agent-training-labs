@@ -37,6 +37,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["archived", ".git", ".venv", "__pycache__"]
+pythonpath = ["."]
 addopts = "-q"
 
 [tool.ruff]

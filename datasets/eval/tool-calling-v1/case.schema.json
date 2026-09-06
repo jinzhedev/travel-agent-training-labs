@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://training.local/datasets/eval/tool-calling-v1/case.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "input", "category", "available_permissions", "allow_side_effects", "approval_id", "expected_action", "expected_candidate_tools", "expected_calls", "max_calls", "risk_tags", "source_case_id"],
+  "properties": {
+    "case_id": {"type": "string", "pattern": "^TOOL-[0-9]{3}$"},
+    "input": {"type": "string", "minLength": 1},
+    "category": {"type": "string", "minLength": 1},
+    "available_permissions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "allow_side_effects": {"type": "boolean"},
+    "approval_id": {"type": ["string", "null"]},
+    "authenticated_user_id": {"type": "string", "minLength": 1},
+    "current_itinerary_id": {"type": "string", "minLength": 1},
+    "expected_action": {"enum": ["call", "clarify", "answer", "refuse"]},
+    "expected_candidate_tools": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "expected_calls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "arguments"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "arguments": {"type": "object"}
+        }
+      }
+    },
+    "accepted_call_variants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "arguments"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "arguments": {"type": "object"}
+          }
+        }
+      }
+    },
+    "max_calls": {"type": "integer", "minimum": 0, "maximum": 8},
+    "risk_tags": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "source_case_id": {"type": "string", "pattern": "^T[0-9]{3}$"}
+  }
+}

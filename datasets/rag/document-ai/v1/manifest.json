@@ -1,0 +1,13 @@
+{
+  "revision": "xiamen-document-ai-v1.0.1",
+  "source": "课程合成数据；地名真实，规则模拟",
+  "observed_at": "2026-08-23",
+  "valid_until": "2026-09-30",
+  "is_simulated": true,
+  "dataset_id": "xiamen-document-ai-v1",
+  "page_count": 7,
+  "object_count": 14,
+  "document_count": 4,
+  "embedded_raster_diagram_pages": 2,
+  "notice": "教学模拟资料，不用于真实出行或交易决策。"
+}

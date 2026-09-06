@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://training.local/schemas/rag-eval-case-v1.json",
+  "title": "Document RAG evaluation case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "category",
+    "query",
+    "mode",
+    "answerable",
+    "gold_document_ids",
+    "gold_pages",
+    "gold_object_ids",
+    "gold_fine_ids",
+    "must_contain",
+    "must_not_contain",
+    "expected_support_status"
+  ],
+  "properties": {
+    "case_id": {"type": "string", "pattern": "^RAG-[0-9]{3}$"},
+    "category": {
+      "enum": [
+        "paragraph",
+        "table",
+        "flowchart",
+        "sequence_diagram",
+        "version_conflict",
+        "unanswerable",
+        "dependent_multihop",
+        "parallel_synthesis"
+      ]
+    },
+    "query": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["single", "multihop"]},
+    "evidence_plan_id": {"type": ["string", "null"]},
+    "answerable": {"type": "boolean"},
+    "gold_document_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "gold_pages": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": true},
+    "gold_object_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "gold_fine_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "must_contain": {"type": "array", "items": {"type": "string"}},
+    "must_not_contain": {"type": "array", "items": {"type": "string"}},
+    "expected_support_status": {"enum": ["supported", "insufficient"]},
+    "notes": {"type": "string"}
+  }
+}
