@@ -1,4 +1,4 @@
-# 学员操作手册：搭建 Dify + Travel Core + Phoenix 环境
+# 操作手册：搭建 Dify + Travel Core + Phoenix 环境
 
 本手册带你把课程环境装起来：Dify 工作流引擎、Travel Core 业务服务、Phoenix 追踪都运行在 Docker 容器里。
 
@@ -194,17 +194,17 @@ docker compose -f docker-compose.yaml -f ../docker-compose.override.yaml up -d
 ## 09. 在 Dify 中安装模型
 
 1. 在插件市场安装 Deepseek（推荐`deepseek-v4-flash`）或智谱/Kimi 等任意模型提供商，并配置好 API key
-   ![配置 LLM 供应商](../../images/dify-install-llm-plugin.png)
-   ![配置 LLM API](../../images/dify-llm-conf.png)
+   ![配置 LLM 供应商](images/dify-install-llm-plugin.png)
+   ![配置 LLM API](images/dify-llm-conf.png)
 2. 在插件市场安装硅基流动（SiliconFlow），我们会用到它免费提供的嵌入模型（`BAAI/bge-m3`）和重排模型（`BAAI/bge-reranker-v2-m3`）；但如果你有其他嵌入模型（如智谱）也可以使用
-   ![Embedding 模型](../../images/dify-embedding-free.png)
-   ![配置 Embedding 模型](../../images/dify-embedding-free-conf.png)
+   ![Embedding 模型](images/dify-embedding-free.png)
+   ![配置 Embedding 模型](images/dify-embedding-free-conf.png)
 3. 在插件-模型里，设置默认选项可以方便后续配置，避免出错
-   ![默认模型](../../images/dify-default-models.png)
+   ![默认模型](images/dify-default-models.png)
 
 ## 常见问题
 
 - **Dify 中安装 Deepseek 等插件报错**：与网络有关，可以通过在[插件市场](https://marketplace.dify.ai)下载，然后本地安装的方式绕过。
-  ![下载](../../images/dify-install-plugin-local-1.png)
-  ![安装](../../images/dify-install-plugin-local-2.png)
+  ![下载](images/dify-install-plugin-local-1.png)
+  ![安装](images/dify-install-plugin-local-2.png)
 - **SSRF 报 "blocked by SSRF protection"，URL 却在放行列表里**：先怀疑 Dify 把 401 误报成 SSRF。Travel Core 返回 401（`TRAVEL_CORE_API_KEY` 不匹配）时，响应经过 SSRF 代理带回 squid 头，Dify 会误判。先核对 API key。
