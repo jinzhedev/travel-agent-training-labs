@@ -1,0 +1,37 @@
+# 本机开发覆盖：从当前仓库构建镜像，挂载源码并启用 Uvicorn 热加载。
+services:
+  travel-core:
+    image: migu-travel-core:dev
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+      target: development
+    command:
+      - uvicorn
+      - travel_core.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --workers
+      - "1"
+      - --reload
+      - --reload-dir
+      - /app/src
+      - --reload-dir
+      - /app/datasets/scenario/xiamen/v1
+      - --reload-dir
+      - /app/datasets/tools/catalog-v1
+      - --reload-dir
+      - /app/datasets/rag/document-ai/v1/parsed
+      - --reload-dir
+      - /app/datasets/rag/multihop/v1
+      - --reload-include
+      - "*.json"
+      - --reload-include
+      - "*.jsonl"
+    environment:
+      PYTHONPATH: /app/src
+    volumes:
+      - ../../../src:/app/src:ro
+      - ../../../datasets:/app/datasets:ro

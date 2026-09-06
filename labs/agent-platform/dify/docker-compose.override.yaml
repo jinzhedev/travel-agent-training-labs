@@ -1,0 +1,4 @@
+services:
+  api:
+    environment:
+      UPLOAD_FILE_BATCH_LIMIT: ${UPLOAD_FILE_BATCH_LIMIT:-20}

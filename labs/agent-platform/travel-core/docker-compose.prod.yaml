@@ -1,0 +1,9 @@
+# iMac 生产覆盖：在 iMac 构建明确版本的镜像，不挂载源码，也不启用热加载。
+services:
+  travel-core:
+    image: ${TRAVEL_CORE_IMAGE:?请在生产环境文件中设置固定版本的 TRAVEL_CORE_IMAGE}
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+      target: runtime
+    pull_policy: never

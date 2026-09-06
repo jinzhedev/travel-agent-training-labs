@@ -1,0 +1,23 @@
+{
+  "release_id": "lab06-baseline",
+  "app_id": "<Lab 06 App ID>",
+  "agent_model": "<服务商/完整模型名及可取得的版本、推理开关、temperature>",
+  "answer_model": "<服务商/完整模型名及可取得的版本、推理开关、temperature>",
+  "agent_prompt_revision": "agent-v1",
+  "answer_prompt_revision": "answer-v0",
+  "query_template_revision": "query-v1",
+  "knowledge_revision": "xiamen-document-ai-v1.0.1",
+  "retrieval": {
+    "knowledge_base": "<XM-Guide-Object 的知识库 ID>",
+    "embedding": "<Lab 03 实际使用的 embedding>",
+    "search": "<节点实际检索方式>",
+    "top_k": 6,
+    "threshold": 0.5,
+    "reranker": "off",
+    "metadata_filter": "off"
+  },
+  "max_iterations": 4,
+  "tool_names": ["weather_forecast", "poi_search"],
+  "memory": false,
+  "p95_budget_s": 120
+}

@@ -1,0 +1,2 @@
+用户要求：{{ query }}
+核对事项：{% if "待检索：" in agent_text %}{{ agent_text.rsplit("待检索：", 1)[-1] }}{% else %}{{ query }}{% endif %}

@@ -1,0 +1,64 @@
+# Travel Core 业务服务和独立 PostgreSQL 的共同配置。
+# 本机开发叠加 docker-compose.dev.yaml。
+name: travel-core
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-travel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-travel}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  travel-core:
+    image: ${TRAVEL_CORE_IMAGE:-migu-travel-core:2.0.0}
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_NAME: travel-core
+      ENVIRONMENT: ${TRAVEL_CORE_ENVIRONMENT:-training}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-travel}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-travel}
+      API_KEY: ${TRAVEL_CORE_API_KEY:?请在 .env 中设置 TRAVEL_CORE_API_KEY}
+      LOG_LEVEL: ${TRAVEL_CORE_LOG_LEVEL:-INFO}
+    ports:
+      - "${TRAVEL_CORE_BIND_ADDRESS:-0.0.0.0}:${TRAVEL_CORE_PORT:-8000}:8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  postgres_data:

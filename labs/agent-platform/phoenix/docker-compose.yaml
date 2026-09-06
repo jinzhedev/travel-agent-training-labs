@@ -1,0 +1,25 @@
+# Phoenix 追踪服务（LLM/工作流 trace 后端）。
+# 在课程仓库的 labs/agent-platform/phoenix/ 目录执行 docker compose up -d，UI 在 http://localhost:6006。
+name: phoenix
+
+services:
+  phoenix:
+    image: arizephoenix/phoenix:version-20.3.0-nonroot
+    # OrbStack 新建命名卷默认为 root-owned；Phoenix 启动时需要创建 /data/inferences。
+    user: "0:0"
+    # 该镜像默认入口指向系统 python（没装 phoenix 包），启动会报 ModuleNotFoundError。
+    # 覆盖成 PATH 上带 phoenix 的 python。
+    entrypoint: ["python", "-m", "phoenix.server.main", "serve"]
+    restart: unless-stopped
+    ports:
+      # 0.0.0.0 全接口发布：Dify 容器经 host.docker.internal:6006 可达，本机 UI 用 localhost:6006
+      - "6006:6006"
+    volumes:
+      # 数据卷不能挂 /phoenix：那里是镜像 python 环境所在，挂卷会盖住它导致 import 失败。
+      # 挂到 /data，用 PHOENIX_WORKING_DIR 指过去。
+      - phoenix_data:/data
+    environment:
+      PHOENIX_WORKING_DIR: /data
+
+volumes:
+  phoenix_data:

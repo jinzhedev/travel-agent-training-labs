@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "kind": {"type": "string", "enum": ["weather", "poi", "utility"]},
+          "query": {"type": "string"},
+          "city": {"type": "string"},
+          "date": {"type": "string"},
+          "utility_type": {"type": "string", "enum": ["", "water", "electricity"]},
+          "depends_on": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["id", "kind", "query", "city", "date", "utility_type", "depends_on"]
+      }
+    },
+    "missing_information": {"type": "array", "items": {"type": "string"}},
+    "unsupported_reason": {"type": "string"},
+    "proposed_action": {"type": "string", "enum": ["none", "save_itinerary"]},
+    "candidate_text": {"type": "string"}
+  },
+  "required": ["tasks", "missing_information", "unsupported_reason", "proposed_action", "candidate_text"]
+}
