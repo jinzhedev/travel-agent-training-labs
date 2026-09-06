@@ -16,7 +16,7 @@ Dify 负责模型调用与工具选择。Travel Core 只保存预算、工具结
 
 ## 材料与准备
 
-先按 [实验环境](../agent-platform/README.md) 启动 Dify、Phoenix 和 Travel Core。更新 Travel Core 源码后确认 `/openapi.json` 中能找到 `/v1/lab05/tasks`；开发 Compose 使用源码挂载和热加载，旧镜像需在本机重建。
+先按 [实验环境](../../README.md) 启动 Dify、Phoenix 和 Travel Core。更新 Travel Core 源码后确认 `/openapi.json` 中能找到 `/v1/lab05/tasks`；开发 Compose 使用源码挂载和热加载，旧镜像需在本机重建。
 
 确认浏览器打开的 Dify 与工具服务器地址属于预期环境。远端 Dify 的 `host.docker.internal` 指向远端宿主机，不是学员电脑；仅在本机访问接口成功，不能证明 Dify 能调用它。
 

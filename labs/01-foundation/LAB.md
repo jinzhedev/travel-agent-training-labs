@@ -247,4 +247,4 @@ Dify 按 app 配置监控功能提供商。在刚刚完成的 Dify Chatflow app 
 
 ## FAQ
 
-1. **tool invoke error: read tool response failed: request failed: Access to 'http://host.docker.internal:8000/v1/tools/weather/forecast' was blocked by SSRF protection**: 需要按照[实验设置](../agent-platform/README.md#8-配置-dify-的-ssrf-放行)说明配置 SSRF 允许的域名，然后重新构建并启动服务。
+1. **tool invoke error: read tool response failed: request failed: Access to 'http://host.docker.internal:8000/v1/tools/weather/forecast' was blocked by SSRF protection**: 需要按照[实验设置](../../README.md#8-配置-dify-的-ssrf-放行)说明配置 SSRF 允许的域名，然后重新构建并启动服务。

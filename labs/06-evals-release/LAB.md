@@ -15,7 +15,7 @@
 
 ## 准备工作
 
-先完成 [平台环境](../agent-platform/README.md)、Lab 01 的两个工具配置，以及 Lab 03 的 `XM-Guide-Object` 知识库。无需导入 CP05/CP06，也不依赖 Lab 04、05 的工作流。
+先完成 [平台环境](../../README.md)、Lab 01 的两个工具配置，以及 Lab 03 的 `XM-Guide-Object` 知识库。无需导入 CP05/CP06，也不依赖 Lab 04、05 的工作流。
 
 在课程根目录执行：
 
@@ -177,7 +177,7 @@ JUDGE_MODEL=<评测模型名>
 JUDGE_API_KEY=<评测模型 API key>
 ```
 
-脚本从宿主机访问服务。Dify 容器访问 Travel Core、Phoenix 时，按 [平台地址说明](../agent-platform/README.md) 配置 Docker Desktop、Compose 网络或 Linux gateway 对应地址。
+脚本从宿主机访问服务。Dify 容器访问 Travel Core、Phoenix 时，按 [平台地址说明](../../README.md) 配置 Docker Desktop、Compose 网络或 Linux gateway 对应地址。
 
 在仓库根目录执行：
 
@@ -454,7 +454,7 @@ uv run python scripts/run_phoenix_lab06_eval.py check-release \
 13 条模拟 Trace、10 条人工／Judge 对照和 4 份候选报告仍保留在 `continuous-improvement-v1`。主实验完成后，用它们补充现场不一定出现的延迟反馈、隐私、重复样本、评分器错误和未授权副作用。
 
 ```bash
-uv run python scripts/archived/validate_continuous_improvement_cases.py \
+uv run python scripts/validate_continuous_improvement_cases.py \
   --output reports/local/lab06/offline-dataset-check.json
 ```
 

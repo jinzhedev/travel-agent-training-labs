@@ -1,0 +1,7 @@
+**
+!.dockerignore
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!src/**
+!datasets/**

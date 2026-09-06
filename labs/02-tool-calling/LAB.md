@@ -23,7 +23,7 @@
 
 ## 准备工作
 
-参考 [AgentPlatform 文档](../agent-platform/README.md)，确认以下服务已经可以访问：
+参考 [AgentPlatform 文档](../../README.md)，确认以下服务已经可以访问：
 
 - Dify；
 - Phoenix；

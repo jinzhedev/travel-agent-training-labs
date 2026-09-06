@@ -13,7 +13,7 @@
 
 ## 材料与准备
 
-1. 完成 [环境配置](../agent-platform/README.md)，确认 Dify、Travel Core 和 Phoenix 可以访问。
+1. 完成 [环境配置](../../README.md)，确认 Dify、Travel Core 和 Phoenix 可以访问。
 2. 复用 [Lab 01](../01-foundation/LAB.md) 的 Agent Strategy 和模型配置，以及 [Lab 02](../02-tool-calling/LAB.md) 的工具导入方法。
 3. 新建 **Chatflow**，名称填 `Lab 04`。请求使用系统变量 `sys.query`，结尾使用 Answer，与前面 labs 保持一致。
 4. 在应用 Monitoring 中配置 Phoenix，项目名称填 `Lab 04`。

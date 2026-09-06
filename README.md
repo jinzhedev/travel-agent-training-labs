@@ -89,9 +89,7 @@ Copy-Item "$env:TEMP\dify\docker\*" labs\agent-platform\dify -Recurse -Force
 Set-Location labs\agent-platform\dify
 ```
 
-### 启动
-
-执行
+执行：
 
 ```bash
 cp .env.example .env
@@ -164,7 +162,7 @@ curl http://localhost:6006/     # 返回 Phoenix 页面 HTML
 
 Dify 的 HTTP Request 节点走 SSRF 防护，默认拒绝私网地址。Dify 与 Travel Core 属于两个独立 Compose 项目，Dify 经宿主机发布端口访问 Travel Core（`host.docker.internal:8000`）。
 
-在 Dify 目录（如来自克隆则是`labs/agent-platform/dify/`，否则是`labs/agent-platform/dify/dify-docker-v1.17.0`）的 `.env`：
+在 Dify 目录（`labs/agent-platform/dify/`）的 `.env`：
 
 ```dotenv
 SSRF_PROXY_ALLOW_PRIVATE_DOMAINS=host.docker.internal
@@ -178,7 +176,7 @@ docker compose up -d --force-recreate ssrf_proxy api worker
 
 ### 8.1 （可选） 调整 Dify 知识库一次性导入的文件上限
 
-默认一次性最多导入 5 个文件。在 Dify 目录（如来自克隆则是`labs/agent-platform/dify/`，否则是`labs/agent-platform/dify/dify-docker-v1.17.0`）的 `.env` 增加
+默认一次性最多导入 5 个文件。在 Dify 目录（`labs/agent-platform/dify/`）的 `.env` 增加
 
 ```
 UPLOAD_FILE_BATCH_LIMIT=20
@@ -187,8 +185,8 @@ UPLOAD_FILE_BATCH_LIMIT=20
 使用已经配置好的 `docker-compose.override.yaml` 重启服务，如
 
 ```
-cd labs/agent-platform/dify/dify-docker-v1.17.0
-docker compose -f docker-compose.yaml -f ../docker-compose.override.yaml up -d
+cd labs/agent-platform/dify
+docker compose -f docker-compose.yaml -f docker-compose.override.yaml up -d
 ```
 
 ## 09. 在 Dify 中安装模型

@@ -1,0 +1,101 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Lab 05 模拟付费查询",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://host.docker.internal:8000"
+    }
+  ],
+  "paths": {
+    "/v1/lab05/tools/paid-poi-detail": {
+      "post": {
+        "operationId": "paid_poi_detail",
+        "summary": "查询景点详情；每次消耗1个模拟费用额度。 返回 blocked 时不再尝试受此任务预算约束的工具。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "poi_id": {
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "title": "Poi Id",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "poi_id"
+                ],
+                "title": "PaidQuery",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "模拟查询结果或结构化停止原因"
+          }
+        },
+        "security": [
+          {
+            "taskToken": []
+          }
+        ]
+      }
+    },
+    "/v1/lab05/tools/paid-poi-hours": {
+      "post": {
+        "operationId": "paid_poi_hours",
+        "summary": "查询景点开放时间；每次消耗1个模拟费用额度。 返回 blocked 时不再尝试受此任务预算约束的工具。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "poi_id": {
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "title": "Poi Id",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "poi_id"
+                ],
+                "title": "PaidQuery",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "模拟查询结果或结构化停止原因"
+          }
+        },
+        "security": [
+          {
+            "taskToken": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "taskToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Lab-Task-Token"
+      }
+    }
+  }
+}
