@@ -101,6 +101,7 @@ Dify 按 app 配置监控功能提供商。在刚刚完成的 Dify Chatflow app 
    - Agent 最终输出；
    - Answer 节点输出。
      ![Dify 应用内就能查看 trace](../../images/dify-in-app-trace.png)
+
 3. 在 trace 中记录 run ID、工具名和工具参数。
    ![Dify 应用内 ID](../../images/dify-in-app-ids.png)
 4. 切换到 Phoenix 的 `Lab 01`（取决于你在 Dify 中配置监控时取的项目名称）项目，打开对应项目，按时间找到这次运行。
@@ -214,7 +215,9 @@ Dify 按 app 配置监控功能提供商。在刚刚完成的 Dify Chatflow app 
    uv run python scripts/run_phoenix_lab01_llm_judge.py \
      --dry-run
    ```
+
    它会读取 .env 中设置好的 `JUDGE_MODEL`，`JUDGE_BASE_URL`，`JUDGE_API_KEY` 等变量完成 LLM 评测。
+
 3. 确认 dry-run 参数和 judge 模型配置后，运行完整实验：
 
    ```bash
@@ -236,14 +239,14 @@ Dify 按 app 配置监控功能提供商。在刚刚完成的 Dify Chatflow app 
 
 填写以下记录：
 
-| 项目                  | 记录 |
-| --------------------- | ---- |
-| Dify App ID           |      |
-| Chatflow 当前发布版本 |      |
-| Phoenix project       |      |
-| Dataset 名称与版本    |      |
-| 第一版 trace ID       |      |
-| 最新版 trace ID       |      |
+| 项目                  | 记录                                         |
+| --------------------- | -------------------------------------------- |
+| Dify App ID           | 72d4e306-609b-49be-bab8-613d947f708a         |
+| Chatflow 当前发布版本 | 2026-09-07 03:43:28.053134                   |
+| Phoenix project       | Lab 01                                       |
+| Dataset 名称与版本    | lab01-weather-tool, RGF0YXNldFZlcnNpb246OA== |
+| 第一版 trace ID       |                                              |
+| 最新版 trace ID       | bf12ce14d53dcc49e8b7e1e1af9130fb             |
 
 ## FAQ
 

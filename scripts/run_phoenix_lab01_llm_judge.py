@@ -78,8 +78,6 @@ def build_llm_judge(
 
 实际回答（output）：
 <output>{{output}}</output>
-
-只输出一个分类：pass 或 fail。
 """,
         choices={
             "pass": (1.0, "实际回答正确满足用户请求，且没有编造缺失信息。"),
