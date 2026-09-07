@@ -233,3 +233,10 @@ pyrightconfig.json
 .env.*
 !.env.example
 !.env.*.example
+
+# Dify 本地部署目录：默认忽略，仅保留 Docker Compose 配置。
+/labs/agent-platform/dify/*
+/labs/agent-platform/dify/**
+/labs/agent-platform/dify/.env.example
+!/labs/agent-platform/dify/docker-compose*.yml
+!/labs/agent-platform/dify/docker-compose*.yaml
