@@ -25,6 +25,7 @@
 | ------------------------------------------------------------------ | ---------------------------------------------- |
 | [request.schema.json](code/request.schema.json)                    | 请求解析 LLM 的结构化输出 Schema               |
 | [route.py](code/route.py)                                          | “校验与路由”Code 节点，全文复制                |
+| [final_answer.py](code/final_answer.py) | 从 Agent.json 提取最后一轮最终回答 |
 | [join.py](code/join.py)                                            | “合并结果”Code 节点，全文复制                  |
 | [finish.py](code/finish.py)                                        | 人工决定后的 Code 节点，全文复制并修改指定常量 |
 | [15 条题目与预期](../../datasets/eval/routing-hitl-v2/cases.jsonl) | 新版金标 L04-001～015                          |
@@ -183,11 +184,15 @@ Instruction：
 只完成输入 JSON 数组中的旅游子任务。
 kind=weather 时调用 weather_forecast，start_date 和 end_date 都使用任务的 date。
 kind=poi 时调用 poi_search，使用任务的 city 和 date，按 query 提取筛选条件。
-每个任务只调用对应工具一次，工具返回后生成最终中文回答。
+query 包含“亲子”时，必须同时传 tags=["亲子"]，不能只传 city 和 date。
+每个任务只调用对应工具一次。调用工具的消息只包含 tool_calls，content 留空，
+不要先写“我来查询”或英文调用说明；工具返回后再生成最终中文回答。
 事实必须来自工具返回；没有匹配结果或调用失败时明确说明，不能补写事实。
 只输出最终回答，不输出思考过程。
 不处理生活服务，不执行保存、预订、支付或取消。
 ```
+
+Agent 后添加 Code `旅游最终回答`：输入 steps（Array[Object]）绑定 `旅游执行器.json`，复制 [final_answer.py](code/final_answer.py)，声明 String 输出 text。它只取最后一轮无工具调用的回答；没有最终轮次或文本为空就失败。Agent.text 可能拼接调用前说明，不直接用于合并。
 
 false 分支添加 `旅游空结果` Template，内容为：
 
@@ -195,12 +200,12 @@ false 分支添加 `旅游空结果` Template，内容为：
 {{ '' }}
 ```
 
-添加 String 类型的 Variable Aggregator，命名为 `旅游结果`，选择 `旅游执行器.text` 和 `旅游空结果.output`，两条互斥分支分别连入聚合器。
+添加 String 类型的 Variable Aggregator，命名为 `旅游结果`，选择 `旅游最终回答.text` 和 `旅游空结果.output`，两条互斥分支分别连入聚合器。
 
 ```text
 解析请求 → 校验与路由 → 需要旅游处理
-                         ├─ true  → 旅游执行器 ──┐
-                         └─ false → 旅游空结果 ─┴→ 旅游结果 → Answer
+true：旅游执行器 → 旅游最终回答 → 旅游结果 → Answer
+false：旅游空结果 → 旅游结果 → Answer
 ```
 
 把原来的 Answer 移到 `旅游结果` 后，临时显示 route 和 travel_answer，用变量选择器分别插入 `校验与路由.route` 和 `旅游结果.output`。本实验先验证路径，完整最终结果在下一实验形成。
@@ -242,13 +247,14 @@ Instruction：
 ```text
 只完成输入 JSON 数组中的生活服务子任务。
 使用任务的 city、utility_type 调用 life_utility_portal 一次，再根据返回值回答。
+调用工具的消息只包含 tool_calls，content 留空，不先输出调用说明。
 只有工具返回了服务网址或办理方式时才能提供；没有就说当前工具未提供办理入口。
 accepted=true 只表示模拟调用被接受，不表示账单已查询、支付成功或业务已办理。
 不要编造网址、账户、金额或业务状态，不使用模型记忆补充办理渠道。
 不处理旅游任务，不执行支付，不输出思考过程。
 ```
 
-false 分支添加 `生活空结果` Template，内容同旅游空结果。用 String 类型的 `生活结果` Variable Aggregator 合并 Agent.text 与空结果.output。
+生活 Agent 后同样添加 Code `生活最终回答`，steps 绑定 `生活执行器.json`，复制 final_answer.py，String 输出 text。false 分支添加 `生活空结果` Template，内容同旅游空结果。用 String 类型的 `生活结果` Variable Aggregator 合并 `生活最终回答.text` 与 `生活空结果.output`。
 
 两个任务当前按旅游、生活顺序执行。生活执行器只读取 life_query，不读取旅游回答。顺序执行方便定位问题，不能把这条 trace 描述成运行时并行。
 
@@ -272,10 +278,10 @@ false 分支添加 `生活空结果` Template，内容同旅游空结果。用 S
    { "city": "<上一步 city>", "utility_type": "<上一步 utility_type>" }
    ```
 
-3. 后接 LLM，仍命名为 `生活执行器`。System 使用上面的回答规则，但去掉“调用工具一次”这句；User 传入原生活子任务、HTTP status_code 和 body。补充规则：非 2xx 时说明查询失败；返回无入口时说明资料不足。
-4. `生活结果` 聚合这个 LLM.text。
+3. 后接 LLM，仍命名为 `生活执行器`。System 使用上面的回答规则，删去要求调用工具及 tool_calls/content 的两句，只保留根据返回值回答的约束；User 传入原生活子任务、HTTP status_code 和 body。补充规则：非 2xx 时说明查询失败；返回无入口时说明资料不足。
+4. HTTP 备选没有 Agent 轮次，移除 `生活最终回答` Code，`生活结果` 直接聚合这个 LLM.text。
 
-这个配置是旅游 Agent 加生活固定流程，仍可演示执行器契约和状态分配。记录配置差异，不根据两个 LLM 节点就宣称两个 Agent 自主协作。自动评分兼容两种生活执行器配置。
+这个配置是旅游 Agent 加生活固定流程，仍可演示执行器契约和状态分配。记录配置差异，不根据两个 LLM 节点就宣称两个 Agent 自主协作。自动评分兼容两种生活执行器配置，但不检查实际工具或 HTTP 参数，需要人工核对。
 
 ### 3. 合并结果
 
@@ -299,7 +305,7 @@ Start → 解析请求 → 校验与路由
   → 合并结果 → Answer
 ```
 
-合并代码只拼接实际返回文本，不调用 LLM。已分配执行器缺少输出，或出现未分配输出时直接失败。worker_answers 保留各执行器原始最终文本，用于对照事件。
+合并代码只拼接实际返回文本，不调用 LLM。已分配执行器缺少输出，或出现未分配输出时直接失败。worker_answers 保留各执行器最后一轮的最终文本，用于对照 Agent.json。原始 Agent.text 仍保留在 trace 和 runner 的 workers.text 中，便于观察调用前说明。
 
 ### 4. 测试
 
@@ -504,13 +510,15 @@ runner 每题使用独立 user 调用 `/v1/chat-messages`：query 放在请求�
 | Evaluator         | 检查内容                                           | 范围限制                         |
 | ----------------- | -------------------------------------------------- | -------------------------------- |
 | route_and_tasks   | 路由、任务数量与参数、候选动作、缺失信息           | 需通过失败题检查是否遗漏用户语义 |
-| worker_completion | SSE 中执行器完成次数、状态，与 worker_answers 对应 | 不评分工具参数或答案事实质量     |
+| worker_completion | SSE 中执行器完成次数、状态，原始 text 与 worker_answers 对应 | 提取最终回答后可能因文本不同而失败；不评分工具参数或答案事实质量 |
 | hitl_lifecycle    | 暂停、提交、原 Run、action ID、终态、修改文本      | 不证明真实人审批，不包含 L04-015 |
 | result_contract   | 最终文本非空、零写入记录存在                       | 不替代实际工具和数据库审计       |
 
 在失败样本 task output 中查看 result、workers、paused、submitted、conversation_id、workflow_run_id，再到对应 trace 定位首次偏差。Experiment metadata 中的 app_mode 为 chatflow；切换应用类型前的 Workflow 报告单独保留，切换后重跑基线再做单变量比较。
 
-人工补查 L04-002 天气参数、L04-003 POI 参数、L04-008 双任务的工具次数与生活回答。四项代码分数通过不能替代这项检查。
+人工补查 L04-002 天气参数、L04-003 POI 参数、L04-008 双任务的工具次数与生活回答。四项代码分数通过不能替代工具参数和答案事实检查。尤其注意 Agent.text 是否混入调用前说明，以及生活回答是否编造入口。对照 Agent.json 的 CALL 步骤，核对“亲子”是否真正传入 poi_search.tags，不根据任务 query 或最终回答推断工具参数。
+
+当前 runner 的 worker_completion 直接比较原始 Agent.text 与 worker_answers。若原始文本混入调用前说明，最终回答 Code 正确去除说明后，该项仍可能失败。此时对照 trace 中 Agent.json 最后一轮、最终回答 Code 输出和 worker_answers，记录是否仅因文本提取产生差异；不要把这项失败直接判为执行器未完成，也不要把人工核对结果记作自动评分通过。不能用“最终结果非空”证明中间说明已被去除。
 
 ### 4. 单变量修改与同集重跑
 
