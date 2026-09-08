@@ -1,10 +1,11 @@
-# Lab 04：结构化请求、路由、多执行器与 HITL
+# Lab 04：结构化请求、路由、并行执行器与 HITL
 
-从空白 Dify Chatflow 开始，先把用户请求变成结构化任务，再分配给旅游、生活两个执行器，最后加入人工暂停与恢复。每个实验只增加当前需要的节点。
+从空白 Dify Chatflow 开始，先把用户请求变成结构化任务，在校验与路由后按需并行执行旅游、生活任务，汇合结果后加入人工暂停与恢复。每个实验只增加当前需要的节点。
 
 ## 完成标准
 
-- Chatflow 能处理单任务和旅游／生活两个独立任务。
+- Chatflow 能按需执行单任务，并行执行旅游／生活两个独立任务。
+- 双任务 trace 中两个执行器的运行时间区间重叠；合并节点等待两侧结果就绪，只执行一次。
 - 能从 trace 指出任务参数、进入的执行器、实际工具调用和合并结果。
 - 参数缺失、能力越界或存在未实现的任务依赖时停止执行。
 - 在 Web App 手工完成批准、修改、取消，记录同一 Run 暂停前后的状态。
@@ -15,9 +16,11 @@
 
 1. 完成 [环境配置](../../README.md)，确认 Dify、Travel Core 和 Phoenix 可以访问。
 2. 复用 [Lab 01](../01-foundation/LAB.md) 的 Agent Strategy 和模型配置，以及 [Lab 02](../02-tool-calling/LAB.md) 的工具导入方法。
-3. 新建 **Chatflow**，名称填 `Lab 04`。请求使用系统变量 `sys.query`，结尾使用 Answer，与前面 labs 保持一致。
-4. 在应用 Monitoring 中配置 Phoenix，项目名称填 `Lab 04`。
-5. 本地 `.env` 增加 `DIFY_LAB04_API_KEY=<本 Chatflow 发布后的 API key>`。继续与之前的 labs 共用 `DIFY_BASE_URL`、`PHOENIX_ENDPOINT` 和 `PHOENIX_API_KEY`。
+3. 新建 **Chatflow**，名称填 `Lab 04 并行执行器`。请求使用系统变量 `sys.query`，结尾使用 Answer，与前面 labs 保持一致。
+4. 在应用 Monitoring 中配置 Phoenix，项目名称填 `Lab 04 并行执行器`。
+5. 本地 `.env` 增加 `DIFY_LAB04_PARALLEL_API_KEY=<本 Chatflow 新建的独立 API key>`。继续与之前的 labs 共用 `DIFY_BASE_URL`、`PHOENIX_ENDPOINT` （http://host.docker.internal:6006）和 `PHOENIX_API_KEY`。
+
+已有串行版时，保留原应用和 `DIFY_LAB04_API_KEY`，在新应用完成本节。可导入 [并行版工作流](workflow.parallel.dify.yml) 对照节点与连线；导出文件中的 `TRAVEL_CORE_API_KEY` 已清空，导入后在应用环境变量中填写，并检查模型、工具引用和 Monitoring 配置。
 
 本节只处理当前消息，不增加会话变量，解析与执行器均关闭 Memory。每题新建会话；缺参数时补齐完整请求后重新测试，不依赖单独补充日期或“就按刚才的”这类跨轮输入。
 
@@ -25,7 +28,7 @@
 | ------------------------------------------------------------------ | ---------------------------------------------- |
 | [request.schema.json](code/request.schema.json)                    | 请求解析 LLM 的结构化输出 Schema               |
 | [route.py](code/route.py)                                          | “校验与路由”Code 节点，全文复制                |
-| [final_answer.py](code/final_answer.py) | 从 Agent.json 提取最后一轮最终回答 |
+| [final_answer.py](code/final_answer.py)                            | 从 Agent.json 提取最后一轮最终回答             |
 | [join.py](code/join.py)                                            | “合并结果”Code 节点，全文复制                  |
 | [finish.py](code/finish.py)                                        | 人工决定后的 Code 节点，全文复制并修改指定常量 |
 | [15 条题目与预期](../../datasets/eval/routing-hitl-v2/cases.jsonl) | 新版金标 L04-001～015                          |
@@ -40,7 +43,7 @@ uv run python scripts/run_phoenix_lab04_eval.py --dry-run
 
 预期显示 `auto_cases=14`、`manual_timeout_cases=["L04-015"]`。这里的 dry-run 不调用 Dify，也不写 Phoenix。
 
-时间参考：请求结构 20 分钟、单任务路由 25 分钟、双执行器 30 分钟、人工暂停恢复 40 分钟、评测与回归 35 分钟。超时分支连接好后尽早启动 L04-015，让它在后续实验期间等待。
+时间参考：请求结构 20 分钟、单任务路由 25 分钟、并行执行器 30 分钟、人工暂停恢复 40 分钟、评测与回归 35 分钟。超时分支连接好后尽早启动 L04-015，让它在后续实验期间等待。
 
 ## 实验 1：结构化请求
 
@@ -161,7 +164,7 @@ Answer 内容用变量选择器插入 `解析请求.structured_output`，先展�
 
 `route` 为 `direct / travel / life / both / clarify / unsupported`。两个 need 字段控制分支；两个 query 只包含对应执行器的任务；state_json 保存本次请求与路由状态。
 
-代码重新检查日期、任务 ID、依赖及每个领域的任务数量。clarify / unsupported 时两个 need 均为 false，候选动作也清除。这个流程不使用模型自报置信度。
+代码重新检查日期、任务 ID、依赖及每个领域的任务数量。clarify / unsupported 时两个 need 均为 false，候选动作也清除。Structured Output 约束字段结构、类型和枚举；解析结果允许保留空参数，代码再检查是否满足执行条件。Schema 合法不代表日期有效或业务参数完整。这个流程不使用模型自报置信度。
 
 ### 3. 旅游执行器与分支
 
@@ -221,15 +224,17 @@ false：旅游空结果 → 旅游结果 → Answer
 
 记录路由输出、实际工具参数和 run ID。答案中出现工具名称不能证明调用发生过。
 
-## 实验 3：两个执行器与状态合并
+## 实验 3：并行执行器与状态合并
 
 ### 目标
 
-分别完成旅游、生活任务，核对各自输入与最终共享结果。
+从校验与路由分出两条独立条件分支，按需执行旅游、生活任务，等待两侧结果后统一合并。用 trace 核对任务隔离、运行时间和汇合次数。
 
 ### 1. 生活执行器
 
-在 `旅游结果` 后添加 IF/ELSE，命名为 `需要生活处理`，条件是 `校验与路由.need_life is true`。
+从 `校验与路由` 再连接一个 IF/ELSE，命名为 `需要生活处理`，条件是 `校验与路由.need_life is true`。保留 `校验与路由 → 需要旅游处理`，使两个条件节点拥有同一上游。
+
+如果从串行版复制节点，删除 `旅游结果 → 需要生活处理`，改连 `校验与路由 → 需要生活处理`。
 
 true 分支添加 Agent，命名为 `生活执行器`：
 
@@ -256,7 +261,7 @@ accepted=true 只表示模拟调用被接受，不表示账单已查询、支付
 
 生活 Agent 后同样添加 Code `生活最终回答`，steps 绑定 `生活执行器.json`，复制 final_answer.py，String 输出 text。false 分支添加 `生活空结果` Template，内容同旅游空结果。用 String 类型的 `生活结果` Variable Aggregator 合并 `生活最终回答.text` 与 `生活空结果.output`。
 
-两个任务当前按旅游、生活顺序执行。生活执行器只读取 life_query，不读取旅游回答。顺序执行方便定位问题，不能把这条 trace 描述成运行时并行。
+两条条件分支可以并行推进；只有 route=both 时两个执行器都会运行。旅游执行器只读取 travel_query，生活执行器只读取 life_query，互不读取对方回答。单任务中未分配的一侧走空结果；clarify / unsupported 时两侧都走空结果，不调用工具。
 
 ### 2. 生活工具的 HTTP 备选
 
@@ -281,11 +286,11 @@ accepted=true 只表示模拟调用被接受，不表示账单已查询、支付
 3. 后接 LLM，仍命名为 `生活执行器`。System 使用上面的回答规则，删去要求调用工具及 tool_calls/content 的两句，只保留根据返回值回答的约束；User 传入原生活子任务、HTTP status_code 和 body。补充规则：非 2xx 时说明查询失败；返回无入口时说明资料不足。
 4. HTTP 备选没有 Agent 轮次，移除 `生活最终回答` Code，`生活结果` 直接聚合这个 LLM.text。
 
-这个配置是旅游 Agent 加生活固定流程，仍可演示执行器契约和状态分配。记录配置差异，不根据两个 LLM 节点就宣称两个 Agent 自主协作。自动评分兼容两种生活执行器配置，但不检查实际工具或 HTTP 参数，需要人工核对。
+这个配置是旅游 Agent 加生活固定流程，仍可演示执行器契约和状态分配。记录配置差异，不根据两个 LLM 节点就宣称两个 Agent 自主协作。该备选仍放在生活条件分支内，与旅游分支并行。自动评分兼容其结果结构，但 tool_execution 对 HTTP 备选标记 not_scored，实际 HTTP 参数需要人工核对。
 
 ### 3. 合并结果
 
-在 `生活结果` 后添加 Code `合并结果`，复制 [join.py](code/join.py)。
+添加 Code `合并结果`，将 `旅游结果` 和 `生活结果` 分别连接到这个 Code，复制 [join.py](code/join.py)。移除实验 2 的 `旅游结果 → Answer` 临时连线。
 
 | 输入          | 绑定                         |
 | ------------- | ---------------------------- |
@@ -300,10 +305,15 @@ accepted=true 只表示模拟调用被接受，不表示账单已查询、支付
 
 ```text
 Start → 解析请求 → 校验与路由
-  → 旅游条件分支 → 旅游结果
-  → 生活条件分支 → 生活结果
-  → 合并结果 → Answer
+                    ├→ 需要旅游处理 → 旅游执行器／空结果 → 旅游结果 ─┐
+                    └→ 需要生活处理 → 生活执行器／空结果 → 生活结果 ─┤
+                                                                    ↓
+                                                                 合并结果 → Answer
 ```
+
+每侧的 Variable Aggregator 只负责选择本侧 true / false 互斥分支的输出；两侧都要向合并 Code 提供结果。不要用同一个 Variable Aggregator 在旅游和生活回答之间二选一。执行器路径均保留“提取最终回答”Code，上图省略该节点。
+
+合并节点等待两侧结果就绪后运行一次。即使某侧没有任务，也必须通过空结果路径提供空字符串。执行器报错继续让运行失败，不把已分配任务的失败转成空结果。
 
 合并代码只拼接实际返回文本，不调用 LLM。已分配执行器缺少输出，或出现未分配输出时直接失败。worker_answers 保留各执行器最后一轮的最终文本，用于对照 Agent.json。原始 Agent.text 仍保留在 trace 和 runner 的 workers.text 中，便于观察调用前说明。
 
@@ -319,7 +329,13 @@ Start → 解析请求 → 校验与路由
 | 两个独立任务   | both                  | 一次       | 一次       |
 | 参数缺失／越界 | clarify / unsupported | 不运行     | 不运行     |
 
-L04-008 的旅游执行器不应收到缴费任务，生活执行器不应收到景点问题，合并结果同时保留两边回答。
+L04-008 的旅游执行器不应收到缴费任务，生活执行器不应收到景点问题，合并结果同时保留两边回答。进一步检查：
+
+1. 两个执行器各运行一次，开始和结束时间区间存在重叠；画布上分成两路不能单独证明实际并行。
+2. 两个结果聚合节点均完成后，合并节点才开始，并且只完成一次。
+3. 旅游单任务、生活单任务以及两侧均无任务时，空结果路径均能到达合并节点，不出现等待不结束或未定义变量。
+
+并行耗时还包含解析、工具调用和调度开销，不要求总耗时恰好减半。
 
 生活工具当前只有模拟调用确认，没有真实缴费 URL。正确结果应说明当前工具未提供入口，不应自行补网址。
 
@@ -336,7 +352,7 @@ L04-008 的旅游执行器不应收到缴费任务，生活执行器不应收到
 | worker_answers、候选文本  | 合并代码            | Answer 或 Human Input      |
 | workflow_run_id           | Dify 运行时         | 合并代码、表单、评测       |
 
-保存旅游单任务、生活单任务、双任务三条 trace，记录执行器输入、输出及开始和结束时间。
+保存旅游单任务、生活单任务、双任务三条 trace，记录执行器输入、输出及开始和结束时间，同时记录合并节点的开始时间和执行次数。
 
 ## 实验 4：人工暂停与原 Run 恢复
 
@@ -354,7 +370,9 @@ L04-008 的旅游执行器不应收到缴费任务，生活执行器不应收到
 候选文本 → 人工确认 → 决定分支 → Answer
 ```
 
-这条链通过后，再运行 L04-012 的“查询后确认”。
+这条链通过后，再运行 L04-012 的“查询后确认”。人工确认统一放在合并结果之后，不在旅游、生活分支各放一个表单。
+
+再手工测试双任务后确认：“2026-09-07 去厦门，推荐亲子景点；另外查一下厦门水费办理入口。请把查询结果作为待保存文本，提交前让我确认。”检查两侧都完成后只出现一次表单，候选中包含两侧回答；批准后沿用原 Run，两个执行器均不重新运行。此题作为补充检查，不加入原 14 条 Dataset。
 
 ### 2. 人工表单
 
@@ -463,7 +481,7 @@ side_effect_count=0 是结果记录，不能单独证明没有写入。还要检
 ### 1. 从 trace 建 Dataset
 
 1. 按 [题集](../../datasets/eval/routing-hitl-v2/cases.jsonl) 运行 L04-001～014，人工题完成对应决定。
-2. 在 Phoenix 的 Lab 04 项目中，从这些根 trace 创建 Dataset，名称 `lab04-routing-hitl-v2`。
+2. 在 Phoenix 的 Lab 04 并行执行器项目中，从这些根 trace 创建 Dataset，名称 `lab04-routing-hitl-v2`。
 3. 每条 Input 只保留题集 input，如 `{"query":"谢谢。"}`。
 4. Output 替换为该题 expected，不把模型基线答案作为金标。
 5. Metadata 填 case_id、human_action、suite；suite 为 `lab04-routing-hitl-v2`。human_action 来自题集，不进入模型输入。
@@ -489,14 +507,18 @@ uv run python scripts/run_phoenix_lab04_eval.py --init-dataset
 
 ### 2. 基线 Experiment
 
-确认 Chatflow 已发布，唯一的 Answer 只引用 `最终状态.output`，两个执行器名称分别是旅游执行器、生活执行器，`.env` 中的 key 来自本应用。
+确认 Chatflow 已发布，唯一的 Answer 只引用 `最终状态.output`，两个执行器名称分别是旅游执行器、生活执行器，`.env` 中的 `DIFY_LAB04_PARALLEL_API_KEY` 来自本应用。
+
+runner 仍读取 `DIFY_LAB04_API_KEY`。下面用 `uv run --env-file .env` 加载配置，在子进程中将并行版 key 映射给 runner；不会改写 `.env` 中串行版的 key。
 
 ```bash
 uv run python scripts/run_phoenix_lab04_eval.py --dry-run
 
-uv run python scripts/run_phoenix_lab04_eval.py \
-  --experiment-name lab04-baseline \
-  --simulate-human
+uv run --env-file .env sh -c '
+  DIFY_LAB04_API_KEY="$DIFY_LAB04_PARALLEL_API_KEY" \
+  exec uv run python scripts/run_phoenix_lab04_eval.py \
+    --experiment-name lab04-parallel-baseline \
+    --simulate-human'
 ```
 
 runner 每题使用独立 user 调用 `/v1/chat-messages`：query 放在请求顶层，inputs 为 `{}`，不传 conversation_id，以新会话开始。人工题从 SSE 取得表单，确认其中展示了当前 action ID，再模拟提交预定决定，用原 run ID 继续监听。
@@ -507,27 +529,32 @@ runner 每题使用独立 user 调用 `/v1/chat-messages`：query 放在请求�
 
 ### 3. 读评分
 
-| Evaluator         | 检查内容                                           | 范围限制                         |
-| ----------------- | -------------------------------------------------- | -------------------------------- |
-| route_and_tasks   | 路由、任务数量与参数、候选动作、缺失信息           | 需通过失败题检查是否遗漏用户语义 |
-| worker_completion | SSE 中执行器完成次数、状态，原始 text 与 worker_answers 对应 | 提取最终回答后可能因文本不同而失败；不评分工具参数或答案事实质量 |
-| hitl_lifecycle    | 暂停、提交、原 Run、action ID、终态、修改文本      | 不证明真实人审批，不包含 L04-015 |
-| result_contract   | 最终文本非空、零写入记录存在                       | 不替代实际工具和数据库审计       |
+| Evaluator         | 检查内容                                                     | 范围限制                                                         |
+| ----------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| route_and_tasks   | 路由、任务数量与参数、候选动作、缺失信息                     | 需通过失败题检查是否遗漏用户语义                                 |
+| worker_completion | SSE 中执行器完成次数、状态，final_text 与 worker_answers 对应 | 不检查两个执行器是否实际并行或回答事实质量 |
+| tool_execution | Agent CALL 步骤中的工具、调用次数、城市、日期、服务类型和亲子 tags | HTTP 备选标记 not_scored；不判断工具返回内容的事实质量 |
+| hitl_lifecycle    | 暂停、提交、原 Run、action ID、终态、修改文本                | 不证明真实人审批，不包含 L04-015                                 |
+| result_contract   | 最终文本非空、零写入记录存在                                 | 不替代实际工具和数据库审计                                       |
 
 在失败样本 task output 中查看 result、workers、paused、submitted、conversation_id、workflow_run_id，再到对应 trace 定位首次偏差。Experiment metadata 中的 app_mode 为 chatflow；切换应用类型前的 Workflow 报告单独保留，切换后重跑基线再做单变量比较。
 
-人工补查 L04-002 天气参数、L04-003 POI 参数、L04-008 双任务的工具次数与生活回答。四项代码分数通过不能替代工具参数和答案事实检查。尤其注意 Agent.text 是否混入调用前说明，以及生活回答是否编造入口。对照 Agent.json 的 CALL 步骤，核对“亲子”是否真正传入 poi_search.tags，不根据任务 query 或最终回答推断工具参数。
+人工补查 L04-002 天气参数、L04-003 POI 参数、L04-008 双任务的工具次数与生活回答。五项代码分数通过不能替代答案事实检查和并行时间检查。对照 Agent.json 的 CALL 步骤核对实际参数，生活回答不得编造入口。
 
-当前 runner 的 worker_completion 直接比较原始 Agent.text 与 worker_answers。若原始文本混入调用前说明，最终回答 Code 正确去除说明后，该项仍可能失败。此时对照 trace 中 Agent.json 最后一轮、最终回答 Code 输出和 worker_answers，记录是否仅因文本提取产生差异；不要把这项失败直接判为执行器未完成，也不要把人工核对结果记作自动评分通过。不能用“最终结果非空”证明中间说明已被去除。
+runner 的 worker_completion 使用提取后的 workers.final_text 与 worker_answers 比较，原始 Agent.text 保存在 workers.text 中用于排障。检查最终回答 Code 输出与 Agent.json 最后一轮一致，调用前说明没有进入合并结果。
+
+当前自动评分不检查时间区间重叠、合并节点执行次数或表单出现次数。这些项目须按实验 3、4 单独核对 trace 与 Web App，不能用自动评分通过代替。
 
 ### 4. 单变量修改与同集重跑
 
 根据失败只改一处，例如解析 Prompt 的多任务规则，或旅游 Agent 的日期规则。固定题集、模型、其它节点和迭代上限。修改后发布：
 
 ```bash
-uv run python scripts/run_phoenix_lab04_eval.py \
-  --experiment-name lab04-after-one-change \
-  --simulate-human
+uv run --env-file .env sh -c '
+  DIFY_LAB04_API_KEY="$DIFY_LAB04_PARALLEL_API_KEY" \
+  exec uv run python scripts/run_phoenix_lab04_eval.py \
+    --experiment-name lab04-parallel-after-one-change \
+    --simulate-human'
 ```
 
 如果不改配置也反复波动，基线与修改版均使用 `--repetitions 3`，比较每题三次分布。不要只选最好的一次。
@@ -548,11 +575,14 @@ uv run python scripts/run_phoenix_lab04_eval.py \
 ## 排障与交付
 
 - **生活工具 403**：检查实际请求的 X-Permissions；按 HTTP 备选固定为 life.read。
-- **双任务只执行一项**：先看 tasks 与 need 字段，再看第二个条件是否错误绑定了第一个执行器的结果。
+- **双任务只执行一项**：先看 tasks 与 need 字段，检查两条条件分支都直接连接校验与路由，且各自读取对应的 need 字段。
+- **双任务仍然串行**：检查是否残留旅游结果到生活条件的连线，或生活分支引用了旅游回答；修正后核对 trace 时间区间。
+- **合并等待不结束或只保留一侧**：检查两侧结果都连接合并 Code，false 路径提供空字符串，两侧回答绑定到不同输入。
+- **出现两次人工确认**：检查 Human Input 只位于合并后的人工确认分支，移除执行器分支内的额外表单。
 - **结果聚合为空**：检查互斥分支连线、String 类型和候选变量是否来自实际执行的分支。
 - **最终 JSON 解析失败**：确认 Answer 只插入最终状态.output，没有前缀、代码围栏或旧 Answer 的中间输出。
 - **表单没有 token**：确认 Delivery 为 Web App；Email-only 不适用本 runner。
 - **提交后一直 running**：保存原 run ID 与最后完成节点，检查 Dify worker；不能用新运行冒充恢复。
 - **Dataset 校验失败**：核对权威题集；runner 拒绝未知、重复、缺失或金标不一致的样本。
 
-提交 Chatflow 导出文件、Experiment、单／双任务 trace、人工决定记录和 keep/revert。导出前检查模型与工具凭据，只记录引用，不包含 API key 或 form token。未运行部分标 not_run，仍在等待到期的超时题标 pending。
+提交并行 Chatflow 导出文件、Experiment、单／双任务 trace（含时间重叠与汇合次数）、人工决定记录和 keep/revert。导出前检查模型与工具凭据，只记录引用，不包含 API key 或 form token。未运行部分标 not_run，仍在等待到期的超时题标 pending。

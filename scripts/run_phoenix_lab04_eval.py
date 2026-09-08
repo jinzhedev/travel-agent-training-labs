@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import time
 from collections.abc import Iterable, Mapping
@@ -23,6 +24,16 @@ ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "datasets/eval/routing-hitl-v2/cases.jsonl"
 DATASET = "lab04-routing-hitl-v2"
 WORKERS = {"travel": "旅游执行器", "life": "生活执行器"}
+
+
+def final_worker_text(outputs: Mapping) -> str:
+    """复用课程 Code 节点，同一规则核对合并前的最终回答。"""
+    spec = importlib.util.spec_from_file_location(
+        "lab04_final_answer", ROOT / "labs/04-adaptive-routing-hitl/code/final_answer.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.main(outputs.get("json") or [])["text"]
 
 
 class Settings(BaseSettings):
@@ -117,6 +128,29 @@ def sse_events(lines: Iterable[str]) -> Iterable[dict]:
         yield event
 
 
+def tool_observations(outputs: Mapping) -> list[dict]:
+    """只保留 CALL 步骤和业务参数，不复制工具 header、响应或临时凭据。"""
+    calls = {}
+    for step in outputs.get("json") or []:
+        if not isinstance(step, dict) or not str(step.get("label", "")).startswith("CALL "):
+            continue
+        data = step.get("data")
+        value = data.get("output") if isinstance(data, dict) else None
+        if not isinstance(value, dict) or not value.get("tool_call_id"):
+            continue
+        args = value.get("tool_call_input") or {}
+        calls[value["tool_call_id"]] = {
+            "name": value.get("tool_call_name"),
+            "status": step.get("status"),
+            "arguments": {
+                k: args[k]
+                for k in ("city", "date", "start_date", "end_date", "utility_type", "tags")
+                if k in args
+            },
+        }
+    return list(calls.values())
+
+
 def run_chatflow(
     client: httpx.Client,
     *,
@@ -178,8 +212,13 @@ def run_chatflow(
                     raise ValueError("执行器事件缺少 execution ID")
                 workers[execution_id] = {
                     "title": data["title"],
+                    "node_type": data.get("node_type"),
                     "status": data.get("status"),
                     "text": (data.get("outputs") or {}).get("text", ""),
+                    "final_text": final_worker_text(data.get("outputs") or {})
+                    if data.get("node_type") == "agent" and data.get("status") == "succeeded"
+                    else (data.get("outputs") or {}).get("text", ""),
+                    "tool_calls": tool_observations(data.get("outputs") or {}),
                 }
             if kind == "human_input_required":
                 token = data.get("form_token") or ""
@@ -304,12 +343,46 @@ def worker_completion(output: Mapping, expected: Mapping) -> tuple:
         ok = (
             ok
             and len(matching) == 1
-            and bool(matching[0].get("text", "").strip())
-            and matching[0]["text"].strip() == (answers or {}).get(owner)
+            and bool(matching[0].get("final_text", "").strip())
+            and matching[0]["final_text"].strip() == (answers or {}).get(owner)
         )
     return score(
         bool(ok), "实际执行器事件与合并结果逐项对应", "执行器缺失、重复、失败或合并结果不对应"
     )
+
+
+def tool_execution(output: Mapping, expected: Mapping, input: Mapping) -> tuple:
+    """从运行事件检查实际工具和参数，不能用回答中出现的工具名代替。"""
+    workers = output.get("workers") or []
+    if any(w.get("node_type") == "llm" for w in workers):
+        return (None, "not_scored", "生活 HTTP 备选没有 Agent CALL 步骤，实际 HTTP 参数须手工检查")
+    calls = [call for worker in workers for call in worker.get("tool_calls", [])]
+    tasks = expected["tasks"] if expected["route"] not in ("clarify", "unsupported") else []
+    if len(calls) != len(tasks):
+        return score(False, "", "工具调用缺失或重复，请检查 Agent CALL 步骤")
+    for task in tasks:
+        kind = task["kind"]
+        name = {
+            "weather": "weather_forecast",
+            "poi": "poi_search",
+            "utility": "life_utility_portal",
+        }[kind]
+        matching = [c for c in calls if c.get("name") == name and c.get("status") == "success"]
+        if len(matching) != 1:
+            return score(False, "", "实际工具不匹配或调用失败")
+        args = matching[0].get("arguments") or {}
+        required = {"city": task["city"]}
+        if kind == "weather":
+            required.update(start_date=task["date"], end_date=task["date"])
+        elif kind == "poi":
+            required["date"] = task["date"]
+            if "亲子" in input["query"] and "亲子" not in (args.get("tags") or []):
+                return score(False, "", "亲子偏好未传入 poi_search.tags")
+        else:
+            required["utility_type"] = task["utility_type"]
+        if any(args.get(k) != v for k, v in required.items()):
+            return score(False, "", "实际工具参数与题目不符")
+    return score(True, "实际只读工具、调用次数和业务参数符合题目", "")
 
 
 def hitl_lifecycle(output: Mapping, expected: Mapping) -> tuple:
@@ -429,6 +502,7 @@ def main() -> int:
                 "worker_completion": worker_completion,
                 "hitl_lifecycle": hitl_lifecycle,
                 "result_contract": result_contract,
+                "tool_execution": tool_execution,
             },
             experiment_name=args.experiment_name,
             experiment_metadata={
@@ -451,7 +525,7 @@ def main() -> int:
         )
     if len(experiment.get("task_runs", [])) != 14 * args.repetitions:
         failures += 1
-    if len(experiment.get("evaluation_runs", [])) != 56 * args.repetitions:
+    if len(experiment.get("evaluation_runs", [])) != 70 * args.repetitions:
         failures += 1
     print(
         json.dumps(
