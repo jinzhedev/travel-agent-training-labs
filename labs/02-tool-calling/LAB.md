@@ -261,7 +261,7 @@ Allowed Tools 类型为 `Array[String]`
 先使用 `retrieval` 策略运行：
 
 ```text
-7 号厦门有雨吗
+7 号厦门需要带伞吗
 ```
 
 观察 trace，按以下顺序看：
@@ -410,7 +410,7 @@ Start → 确定 Namespace → HTTP Request → Agent → Answer
 使用：
 
 ```text
-7 号厦门有雨吗
+7 号厦门需要带伞吗
 ```
 
 预期 trace 链路：

@@ -1,6 +1,38 @@
 # 备用实验：多工具必要集合金标
 
-本实验用于补充 Lab 02 的候选工具评测。它不改变主 Lab 的三种候选策略，也不要求当前 Workflow 支持多轮动态检索；需要时单独运行并记录结果。
+本实验提供 12 条任务、21 个独立评测轮次，比较候选检索与 Agent 当前轮工具计划。它不改变主 Lab 的三种候选策略，也不要求当前 Dify Workflow 支持多轮动态检索。
+
+## 运行入口
+
+在仓库根目录执行：
+
+```bash
+# 校验金标、权限、参数和 Observation 依赖
+uv run python scripts/run_lab02_multi_tool_gold.py validate
+
+# 三种候选策略；不调用模型、不需要启动 Travel Core 服务
+uv run python scripts/run_lab02_multi_tool_gold.py candidates --strategy full_catalog
+uv run python scripts/run_lab02_multi_tool_gold.py candidates --strategy namespace
+uv run python scripts/run_lab02_multi_tool_gold.py candidates --strategy retrieval
+
+# 使用 .env 中的 GLM_API_KEY、GLM_BASE_URL、GLM_MODEL 跑真实模型计划
+uv run python scripts/run_lab02_multi_tool_gold.py model --strategy retrieval
+
+# 对独立导出的真实 Dify／模型预测评分
+uv run python scripts/run_lab02_multi_tool_gold.py score --predictions /path/to/predictions.jsonl
+```
+
+候选模式直接调用本地 Travel Core 选择函数，保留环境和权限过滤。全量与 namespace 默认上限 64，retrieval 默认 Top-5，可用 `--max-tools` 修改。namespace 使用原问题推断，不把金标 namespace 注入检索。后续轮把已有 Observation 附加到原问题进行检索；检索器自身不会自动理解依赖图或隐藏后续工具，这正是本实验要检查的部分。
+
+模型模式通过 OpenAI 兼容接口请求 JSON 工具计划，只把原问题、当前 Observation、参考日期、课堂大风约定和候选工具卡交给模型，不发送期望工具、参数或评分标签。它不执行工具，也不调用 Dify Workflow；Dify 预测可按[数据说明](../../datasets/eval/multi-tool-gold-v1/README.md)导出后评分。
+
+默认报告写入 `var/reports/lab02-multi-tool-gold/<运行编号>/`，包含候选记录、模型预测（仅 model 模式）及逐轮 `report.json`。目录已被 Git 忽略。`--output-dir` 可指定尚不存在的目录，已有报告不会被覆盖。
+
+退出码 `0` 表示校验或评测通过，`2` 表示运行完成但指标未达标；输入缺失或程序异常会另行报错。失败报告也是有效实验产出，不应修改金标来追求通过。
+
+数据入口为 [cases.jsonl](../../datasets/eval/multi-tool-gold-v1/cases.jsonl)，控制变量见 [manifest.json](../../datasets/eval/multi-tool-gold-v1/manifest.json)，已测结果见 [baseline.md](../../datasets/eval/multi-tool-gold-v1/baseline.md)。
+
+21 个轮次是独立的冻结快照，其中有互斥分支；不把全部快照串成一次运行。它们评价给定 Observation 时的决策，不代表前序模型调用已成功执行。最终业务任务结果统一记录为 `not_evaluated`。
 
 ## 实验目的
 
@@ -41,25 +73,25 @@
 
 ## 金标字段
 
-建议为每条金标维护以下字段。可以先写成表格，稳定后再转为 JSONL；不要直接修改现有 `case.schema.json`。
+金标已经写入独立 JSONL。任务级保留 `case_id`、`input`、`relation` 和 `required_tools`；轮次字段放在 `rounds` 中。以下示例保留每条任务的首轮，完整后续轮次见数据文件，实际格式以新数据集的 `case.schema.json` 为准，不修改原 40 条评测的 schema。
 
 | 字段 | 含义 |
 | --- | --- |
 | `case_id` | 稳定的金标编号，例如 `MT-001` |
 | `input` | 用户原始请求，保留安全相关原文 |
 | `relation` | `single`、`parallel`、`ordered` 或 `conditional` |
-| `required_tools` | 完成任务所需的全部工具集合；不计入重复调用 |
+| `required_tools` | 所有可能分支需要的工具并集；不计入重复调用，单次任务未必执行全部分支 |
 | `round_required_tools` | 当前评测轮次必须进入候选的工具集合 |
 | `acceptable_tools` | 真正等价的替代工具；没有替代时为空数组 |
 | `forbidden_tools` | 无关、越权或当前轮次不应暴露的工具 |
 | `dependencies` | 工具依赖、顺序和条件 |
 | `expected_action` | `call`、`clarify`、`answer` 或 `refuse` |
-| `max_calls` | 当前任务允许的调用次数上限 |
+| `max_calls` | 当前轮允许的调用次数上限 |
 | `risk_tags` | `parallel`、`conditional`、`side_effect`、`no_tool` 等 |
 
 ### `required_tools` 与 `round_required_tools`
 
-- `required_tools` 回答“这项业务的完整工具链需要什么”。
+- `required_tools` 回答“这项业务所有可能分支的工具并集是什么”。
 - `round_required_tools` 回答“在当前 Observation 和当前轮次，哪些工具必须进入候选”。
 
 对于单次任务，两者通常相同。
@@ -71,7 +103,7 @@ required_tools：weather.forecast、poi.search、itinerary.build_draft
 round_required_tools：weather.forecast
 ```
 
-如果实验只做一次候选预选，应把完整工具链放入候选集合，再单独记录“首轮调用”；如果实验模拟逐轮检索，则每一轮都用新的 `round_required_tools` 评价。
+本运行器采用逐轮检索，用每轮的 `round_required_tools` 与 `forbidden_tools` 评分。若另做单次预选实验，需要调整后续工具的候选暴露规则，不能直接沿用本实验的禁止集合。
 
 ### `acceptable_tools` 不要写成“差不多都可以”
 
@@ -94,16 +126,57 @@ round_required_tools：weather.forecast
 ```json
 {
   "case_id": "MT-001",
-  "input": "查一下 2026-09-07 厦门天气，同时找几个室内景点。",
+  "input": "查一下 2026-09-07 厦门天气，同时找几个厦门的室内景点。",
   "relation": "parallel",
-  "required_tools": ["weather.forecast", "poi.search"],
-  "round_required_tools": ["weather.forecast", "poi.search"],
-  "acceptable_tools": [],
-  "forbidden_tools": ["booking.commit", "booking.cancel", "itinerary.save"],
-  "dependencies": [],
-  "expected_action": "call",
-  "max_calls": 2,
-  "risk_tags": ["parallel"]
+  "required_tools": [
+    "weather.forecast",
+    "poi.search"
+  ],
+  "risk_tags": [
+    "parallel"
+  ],
+  "source_case_id": "TOOL-009",
+  "rounds": [
+    {
+      "round_id": "initial",
+      "observations": [],
+      "round_required_tools": [
+        "weather.forecast",
+        "poi.search"
+      ],
+      "acceptable_tools": [],
+      "forbidden_tools": [
+        "account.update_contact",
+        "booking.cancel",
+        "booking.commit",
+        "booking.hold",
+        "itinerary.save",
+        "stay.create_booking"
+      ],
+      "expected_action": "call",
+      "expected_calls": [
+        {
+          "name": "weather.forecast",
+          "arguments": {
+            "city": "厦门",
+            "start_date": "2026-09-07",
+            "end_date": "2026-09-07"
+          }
+        },
+        {
+          "name": "poi.search",
+          "arguments": {
+            "city": "厦门",
+            "date": "2026-09-07",
+            "indoor_only": true
+          }
+        }
+      ],
+      "max_calls": 2,
+      "dependencies": [],
+      "expected_stop_reason": "continue"
+    }
+  ]
 }
 ```
 
@@ -115,17 +188,46 @@ round_required_tools：weather.forecast
 
 ```json
 {
-  "case_id": "MT-002",
-  "input": "先查订单 O-778 的退改规则；如果可以免费取消，再告诉我下一步。",
+  "case_id": "MT-003",
+  "input": "先查订单 O-778 的退改规则；如果可以免费取消，再告诉我下一步，不要取消。",
   "relation": "ordered",
-  "required_tools": ["booking.refund_policy"],
-  "round_required_tools": ["booking.refund_policy"],
-  "acceptable_tools": [],
-  "forbidden_tools": ["booking.cancel", "booking.commit"],
-  "dependencies": [],
-  "expected_action": "call",
-  "max_calls": 1,
-  "risk_tags": ["ordered", "side_effect_boundary"]
+  "required_tools": [
+    "booking.refund_policy"
+  ],
+  "risk_tags": [
+    "ordered"
+  ],
+  "source_case_id": "TOOL-014",
+  "rounds": [
+    {
+      "round_id": "initial",
+      "observations": [],
+      "round_required_tools": [
+        "booking.refund_policy"
+      ],
+      "acceptable_tools": [],
+      "forbidden_tools": [
+        "account.update_contact",
+        "booking.cancel",
+        "booking.commit",
+        "booking.hold",
+        "itinerary.save",
+        "stay.create_booking"
+      ],
+      "expected_action": "call",
+      "expected_calls": [
+        {
+          "name": "booking.refund_policy",
+          "arguments": {
+            "order_id": "O-778"
+          }
+        }
+      ],
+      "max_calls": 1,
+      "dependencies": [],
+      "expected_stop_reason": "continue"
+    }
+  ]
 }
 ```
 
@@ -137,32 +239,58 @@ round_required_tools：weather.forecast
 
 ```json
 {
-  "case_id": "MT-003",
-  "input": "查厦门 2026-09-07 天气；如果有大风，就只找室内景点。",
+  "case_id": "MT-004",
+  "input": "查厦门 2026-09-07 天气；如果有大风，就只找室内景点，否则告诉我天气即可。",
   "relation": "conditional",
-  "required_tools": ["weather.forecast", "poi.search"],
-  "round_required_tools": ["weather.forecast"],
-  "acceptable_tools": [],
-  "forbidden_tools": ["weather.alerts", "booking.cancel", "itinerary.save"],
-  "dependencies": [
-    {
-      "from": "weather.forecast",
-      "to": "poi.search",
-      "when": "天气结果达到课程定义的大风阈值",
-      "required_input_from_observation": ["wind_gust_kph", "wind_scale"]
-    }
+  "required_tools": [
+    "weather.forecast",
+    "poi.search"
   ],
-  "expected_action": "call",
-  "max_calls": 1,
-  "risk_tags": ["conditional", "first_round"]
+  "risk_tags": [
+    "conditional"
+  ],
+  "source_case_id": "TOOL-033",
+  "rounds": [
+    {
+      "round_id": "initial",
+      "observations": [],
+      "round_required_tools": [
+        "weather.forecast"
+      ],
+      "acceptable_tools": [],
+      "forbidden_tools": [
+        "account.update_contact",
+        "booking.cancel",
+        "booking.commit",
+        "booking.hold",
+        "itinerary.save",
+        "poi.search",
+        "stay.create_booking"
+      ],
+      "expected_action": "call",
+      "expected_calls": [
+        {
+          "name": "weather.forecast",
+          "arguments": {
+            "city": "厦门",
+            "start_date": "2026-09-07",
+            "end_date": "2026-09-07"
+          }
+        }
+      ],
+      "max_calls": 1,
+      "dependencies": [],
+      "expected_stop_reason": "continue"
+    }
+  ]
 }
 ```
 
-首轮评测只检查 `weather.forecast`。收到 Observation 后，再以新的 `round_required_tools=["poi.search"]` 评测第二轮。若实验只做单次预选，则 `candidate_names` 可以包含两个工具，但首轮 `calls` 仍只能包含天气工具。
+首轮评测只检查 `weather.forecast`。收到 Observation 后，再以新的 `round_required_tools=["poi.search"]` 评测第二轮。单次预选允许预留后续候选；本运行器采用逐轮规则，因此首轮的 `poi.search` 应被排除。
 
-## 建议的备用金标集
+## 冻结金标集
 
-先建立 12 条，不要一开始扩展到整个目录：
+当前共 12 条任务，详细轮次见数据集 README：
 
 | 编号 | 类型 | 业务目标 | 首轮必要工具 |
 | --- | --- | --- | --- |
@@ -216,7 +344,7 @@ selection_trace
 allowed_tools
 action
 calls
-调用顺序
+当前轮调用顺序（同轮独立调用可交换）
 前序 Observation
 下一轮 round_required_tools
 stop reason
@@ -265,14 +393,14 @@ candidate inflation
 
 - `expected_action` 对比 Agent 的 `action`：动作判断；
 - `candidate_names` 对比 `round_required_tools`：候选召回；
-- `calls` 对比候选集合和依赖图：工具选择与顺序；
+- `calls` 对比候选集合和冻结依赖：工具选择与跨轮依赖；同轮独立调用可交换顺序；
 - `max_calls`、重复调用和 stop reason：停止控制。
 
 例如必要工具已经进入候选，但 Agent 选择了 `weather.alerts` 而不是 `weather.forecast`，这是选择错误，不是召回错误。
 
 ## 失败样本分类
 
-每条失败 trace 只标首次偏差：
+每条记录保存所有检查结果，并按动作 → 候选 → 暴露 → 依赖 → 选择 → 参数 → 停止标记首次偏差。依赖先于选择，避免把提前调用或伪造前序 ID 统称为选错工具：
 
 | 首次偏差 | 判定条件 |
 | --- | --- |
@@ -303,7 +431,7 @@ expected_candidate_tools = [weather.forecast]
 
 本实验通过至少满足：
 
-- 12 条金标的 `round recall` 达到预先设定阈值；
+- 12 条任务全部轮次的必要工具召回达到 manifest 中的阈值，当前为 100%；
 - `forbidden_tools` 暴露为 0，尤其是副作用工具；
 - 并行任务没有漏掉必要工具；
 - 条件任务首轮只调用当前可执行工具；
@@ -313,4 +441,4 @@ expected_candidate_tools = [weather.forecast]
 
 如果候选召回已经达标，但 Agent 仍然选错，不要继续扩大候选集合；转到选择、参数或 Prompt 的专项评测。
 
-实验到此停止，不把“候选集合更大”直接写成“多工具任务更好”。最终结论必须同时报告必要工具召回、危险暴露、候选膨胀、实际调用和最终任务结果。
+实验到此停止，不把“候选集合更大”直接写成“多工具任务更好”。最终结论同时报告必要工具召回、禁止工具／副作用暴露、候选膨胀、当前轮调用计划。报告保留 `final_task_result=not_evaluated`，不把计划评测通过写成真实执行或最终任务成功。

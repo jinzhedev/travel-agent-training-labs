@@ -1,0 +1,278 @@
+{
+  "$defs": {
+    "Call": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "title": "Arguments",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "arguments"
+      ],
+      "title": "Call",
+      "type": "object"
+    },
+    "Dependency": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "title": "To",
+          "type": "string"
+        },
+        "argument": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Argument"
+        },
+        "observation_path": {
+          "anyOf": [
+            {
+              "const": "matches[].poi_id",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observation Path"
+        },
+        "expected_value": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Value"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Dependency",
+      "type": "object"
+    },
+    "Observation": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "const": "success",
+          "title": "Status",
+          "type": "string"
+        },
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "data"
+      ],
+      "title": "Observation",
+      "type": "object"
+    },
+    "Round": {
+      "additionalProperties": false,
+      "properties": {
+        "round_id": {
+          "title": "Round Id",
+          "type": "string"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/Observation"
+          },
+          "title": "Observations",
+          "type": "array"
+        },
+        "round_required_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Round Required Tools",
+          "type": "array"
+        },
+        "acceptable_tools": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 0,
+          "title": "Acceptable Tools",
+          "type": "array"
+        },
+        "forbidden_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Tools",
+          "type": "array"
+        },
+        "expected_action": {
+          "enum": [
+            "call",
+            "clarify",
+            "answer",
+            "refuse"
+          ],
+          "title": "Expected Action",
+          "type": "string"
+        },
+        "expected_calls": {
+          "items": {
+            "$ref": "#/$defs/Call"
+          },
+          "title": "Expected Calls",
+          "type": "array"
+        },
+        "max_calls": {
+          "minimum": 0,
+          "title": "Max Calls",
+          "type": "integer"
+        },
+        "dependencies": {
+          "items": {
+            "$ref": "#/$defs/Dependency"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "expected_stop_reason": {
+          "enum": [
+            "continue",
+            "done",
+            "needs_input",
+            "refused"
+          ],
+          "title": "Expected Stop Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "round_id",
+        "observations",
+        "round_required_tools",
+        "acceptable_tools",
+        "forbidden_tools",
+        "expected_action",
+        "expected_calls",
+        "max_calls",
+        "dependencies",
+        "expected_stop_reason"
+      ],
+      "title": "Round",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "input": {
+      "title": "Input",
+      "type": "string"
+    },
+    "relation": {
+      "enum": [
+        "single",
+        "parallel",
+        "ordered",
+        "conditional"
+      ],
+      "title": "Relation",
+      "type": "string"
+    },
+    "required_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Tools",
+      "type": "array"
+    },
+    "risk_tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risk Tags",
+      "type": "array"
+    },
+    "source_case_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Source Case Id"
+    },
+    "rounds": {
+      "items": {
+        "$ref": "#/$defs/Round"
+      },
+      "minItems": 1,
+      "title": "Rounds",
+      "type": "array"
+    }
+  },
+  "required": [
+    "case_id",
+    "input",
+    "relation",
+    "required_tools",
+    "risk_tags",
+    "source_case_id",
+    "rounds"
+  ],
+  "title": "Case",
+  "type": "object"
+}

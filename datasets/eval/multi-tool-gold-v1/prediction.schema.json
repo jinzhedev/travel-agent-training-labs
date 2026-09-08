@@ -1,0 +1,120 @@
+{
+  "$defs": {
+    "Call": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "title": "Arguments",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "arguments"
+      ],
+      "title": "Call",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "round_id": {
+      "title": "Round Id",
+      "type": "string"
+    },
+    "candidate_names": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Candidate Names",
+      "type": "array"
+    },
+    "allowed_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "action": {
+      "enum": [
+        "call",
+        "clarify",
+        "answer",
+        "refuse"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "calls": {
+      "items": {
+        "$ref": "#/$defs/Call"
+      },
+      "title": "Calls",
+      "type": "array"
+    },
+    "stop_reason": {
+      "enum": [
+        "continue",
+        "done",
+        "needs_input",
+        "refused"
+      ],
+      "title": "Stop Reason",
+      "type": "string"
+    },
+    "answer": {
+      "title": "Answer",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "model",
+        "dify",
+        "manual"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    }
+  },
+  "required": [
+    "case_id",
+    "round_id",
+    "candidate_names",
+    "allowed_tools",
+    "action",
+    "calls",
+    "stop_reason",
+    "answer",
+    "source",
+    "run_id"
+  ],
+  "title": "Prediction",
+  "type": "object"
+}

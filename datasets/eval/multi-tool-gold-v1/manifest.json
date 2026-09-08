@@ -1,0 +1,17 @@
+{
+  "dataset_revision": "multi-tool-gold-v1.0",
+  "catalog_revision": "tool-catalog-v1.5",
+  "reference_date": "2026-09-07",
+  "environment": "training",
+  "tenant_id": "training",
+  "user_id": "multi-tool-gold",
+  "available_permissions": [
+    "travel.read",
+    "booking.read"
+  ],
+  "allow_side_effects": false,
+  "selection_mode": "per_round",
+  "wind_rule": "课堂分支约定：wind_scale >= 6 或 wind_gust_kph >= 39；不作为官方气象标准。",
+  "minimum_round_recall": 1.0,
+  "observation_source": "人工冻结的独立轮次夹具，包含正反分支，不代表 Travel Core 实时返回或完整执行轨迹。"
+}
