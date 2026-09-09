@@ -74,7 +74,7 @@ uv run python scripts/lab05_runtime.py new \
 新建空白 Chatflow，名称为 `Lab 05`。将默认 LLM 节点改为 Agent，结构保持：
 
 ```text
-Start → Agent → Answer
+Start → Agent →  变量提取 -> 模板 -> Answer
 ```
 
 Agent 配置：

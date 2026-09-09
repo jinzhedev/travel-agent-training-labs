@@ -245,3 +245,7 @@ pyrightconfig.json
 
 # 本地实验报告，不纳入源码同步。
 /reports/
+
+# Lab 06 本地演示文档。
+/labs/06-evals-release/lab-demo.md
+/configs/local/lab06/datasets/cases-demo-v1.jsonl

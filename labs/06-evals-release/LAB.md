@@ -18,7 +18,29 @@
 
 先完成 [平台环境](../../README.md)、Lab 01 的两个工具配置，以及 Lab 03 的 `XM-Guide-Object` 知识库。
 
-在课程根目录执行：
+课程脚本 `scripts/run_phoenix_lab06_eval.py` 将数据准备、应用运行、评分和发布检查封装为子命令。执行命令前，先明确每步在评测流程中的用途：
+
+| 命令或文件      | 对应的评测概念                                                     | 用途                                                                                                                                                                           |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `prepare`       | 版本化数据集（Dataset）                                            | 检查案例与引用的事实；加`--apply` 后在 Phoenix 创建或复用内容一致的数据集，取得版本 ID，供基线与候选使用同一组输入和验收要求。新增或修改案例时使用新的数据集名称，保留旧版本。 |
+| `run`           | 被测系统（Target）与评分器（Evaluators）生成实验记录（Experiment） | 将固定 Dataset 中的输入逐条交给已发布的 Dify Chatflow，保存回答与运行记录，再运行代码评分器及启用的 LLM Judge，用于比较基线与候选。加`--dry-run` 时只做本地预检。              |
+| `resume`        | 补齐未完成的评分                                                   | 对已保存的应用结果补跑缺失或执行失败的评分，沿用原 Experiment，使中断后的结果能够继续分析。                                                                                    |
+| `rejudge`       | 对已保存输出重新运行评分器                                         | 用修订后的 Judge 重新评判同一批回答，观察评分标准变化的影响；保留原始应用输出，不重新调用 Dify。                                                                               |
+| `check-release` | 发布策略（Release Policy）                                         | 根据基线、候选报告和人工复核，检查比较条件、任务结果与门禁要求，输出`pass / block / review` 及退出码，供后续发布判断或 CI 使用。                                               |
+| `cases.jsonl`   | 评测样本与参考验收标准（Examples / Reference Rubric）              | 定义每条输入、工具检查、必要证据和回答要求，使评分有明确依据。                                                                                                                 |
+| `manifest.json` | 被测系统的配置记录                                                 | 记录模型、Prompt、工具、知识库及预算等实验条件，用于核对版本差异与单变量范围；实际应用配置仍需与 Dify 及导出的 DSL 核对。                                                      |
+
+这些命令和文件共同对应以下评测组成：
+
+```text
+评测 = 数据集（Dataset）
+     + 被测系统（Target）
+     + 评分器（Evaluators）
+     + 实验记录（Experiment）
+     + 发布策略（Release Policy）
+```
+
+先在课程根目录检查本地评测案例及其引用，确认后续评测所需的数据齐全：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py prepare
@@ -52,6 +74,7 @@ uv run python scripts/run_phoenix_lab06_eval.py prepare
 
 ```text
 Start
+  -> Get_Datatime （规范化日期）
   → Agent（查询天气与候选景点）
   → Template（整理检索查询，不调用模型）
   → Knowledge Retrieval（核对候选与用户指定景点）
@@ -166,7 +189,7 @@ Answer 只绑定 `生成建议.text`，不增加润色节点。在应用功能�
 DIFY_LAB06_API_KEY=<Lab 06 已发布 Chatflow 的 API key>
 ```
 
-在仓库根目录执行：
+在仓库根目录创建本地实验目录，并复制基线配置和 Prompt 模板，准备记录本轮实验条件：
 
 ```bash
 mkdir -p configs/local/lab06/baseline/prompts configs/local/lab06/evaluators configs/local/lab06/datasets reports/local/lab06
@@ -191,23 +214,25 @@ reports/local/lab06/               # 运行报告、请求日志、人工复核�
 
 编辑基线 manifest，填完占位值，记录节点实际参数。将基线 `prompts/` 中的内容与 Dify 实际配置核对；如果搭建时改过 Prompt，把修改同步到副本，包括最终 LLM 的 User Prompt（可另存 `prompts/answer-user.txt`）。变量绑定以 DSL 为准。
 
-将已发布基线的 DSL 导出为 `configs/local/lab06/baseline/workflow.dify.yml`，并在同目录记录发布日期。开始评测后保留本版文件，后续修改在候选目录进行。`configs/local/` 和 `reports/local/` 都是本地目录，不提交；凭据继续放在 `.env`。
+将已发布基线的 DSL 导出为 `configs/local/lab06/baseline/workflow.dify.yml`，并在同目录记录发布日期。开始评测后保留本版文件，后续修改在候选目录进行。
 
-脚本读取 manifest 记录配置，不会把同目录的 Prompt 自动发布到 Dify。修改本地文件后，仍需在 Dify 更新并发布，再保存对应 DSL。
+脚本读取 manifest 记录配置。
 
 ### 2. 创建 Phoenix Dataset
+
+将本地案例写入 Phoenix，取得固定的数据集版本，供基线与候选使用同一组题：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py prepare --apply
 ```
 
-脚本把 12 条问题、验收要求和引用的冻结事实写入 `lab06-tool-rag-v1`，返回 Dataset ID 与版本 ID。记录 `dataset_version`，后面命令替换 `<版本 ID>`。
+脚本把 12 条问题、验收要求和引用的冻结事实写入 `lab06-tool-rag-v1`，返回 Dataset ID 与版本 ID。记录 `dataset_version`，后面命令替换 `<版本 ID>`。【RGF0YXNldFZlcnNpb246MzE=】
 
 来源直接取自课程准备好的（模拟）文档对象与天气实现结果。
 
 ### 3. 基线实验
 
-先检查本地参数：
+先预检基线的 manifest 和运行参数，确认脚本能够读取本地配置：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py run \
@@ -217,7 +242,9 @@ uv run python scripts/run_phoenix_lab06_eval.py run \
   --with-llm-judge --judge-prompt configs/local/lab06/evaluators/judge-v1.txt --dry-run
 ```
 
-`--dry-run` 只做本地预检，不调用模型。去掉该参数才实际运行：
+`--dry-run` 只做本地预检，不调用模型。
+
+预检通过后，去掉该参数运行基线并评分，保存后续比较所需的原始表现：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py run \
@@ -227,7 +254,7 @@ uv run python scripts/run_phoenix_lab06_eval.py run \
   --with-llm-judge --judge-prompt configs/local/lab06/evaluators/judge-v1.txt
 ```
 
-默认每题 3 次，共 36 次 Chatflow 请求，Judge 在请求完成后评分。评分默认并发 4 项，可在 `run` 或 `rejudge` 命令中增加 `--eval-concurrency 4` 调整；设为 `1` 则串行评分。Dify 请求仍串行执行。遇到评分服务限流时降低并发数。不要同时编辑或发布应用。工具、检索与生成调用来自真实 Dify。
+默认每题 3 次，共 36 次 Chatflow 请求，Judge 在请求完成后评分。评分默认并发 4 项，可在 `run` 或 `rejudge` 命令中增加 `--eval-concurrency 4` 调整；设为 `1` 则串行评分。Dify 请求仍串行执行。工具、检索与生成调用来自真实 Dify。
 
 在 Phoenix 的 Dataset → Experiments 中打开 `lab06-baseline`，查看：
 
@@ -243,7 +270,7 @@ uv run python scripts/run_phoenix_lab06_eval.py run \
 
 `review` 表示需要复核，不能改写成 pass。超时和错误保留在请求日志与失败分母里，不能只统计成功响应。
 
-若运行中断，先查看 `baseline.requests.jsonl`、Phoenix Experiment 和本地报告状态。报告已有 `experiment_id` 和 `task_runs` 时，应用结果已经保存，可续跑缺失或执行失败的评分：
+若运行中断，先查看 `baseline.requests.jsonl`、Phoenix Experiment 和本地报告状态。报告已有 `experiment_id` 和 `task_runs` 时，应用结果已经保存。补齐这次实验缺失或执行失败的评分，继续分析已保存的回答：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py resume \
@@ -259,7 +286,7 @@ uv run python scripts/run_phoenix_lab06_eval.py resume \
 
 若已更换 Judge 配置，又需要补齐规则评分，在 `resume` 命令中增加 `--allow-judge-change`。脚本按当前配置生成 Judge 版本名，补齐该版本对全部已保存回答的评分，保留旧版本评分；规则评分仍只补缺失或执行失败项。新报告的 `judge_revision` 会更新，后续版本比较须使用同一 Judge 版本。
 
-DeepSeek V4 Judge 默认关闭思考模式，以兼容分类评分所需的指定函数调用；该调用参数计入 Judge 版本。Phoenix 请求直连配置的地址，不使用环境变量中的 HTTP 代理；读取报告的默认 HTTP 超时为 30 秒，与 `--eval-timeout` 指定的评分执行超时分开。若评分执行结束后，在读取结果时中断，已写入 Phoenix 的评分仍会保留；使用新输出文件名再次执行 `resume`，可补齐剩余项并保存报告。
+DeepSeek V4 Judge 默认关闭思考模式，以兼容分类评分所需的指定函数调用；该调用参数计入 Judge 版本。Phoenix 请求直连配置的地址，不使用环境变量中的 HTTP 代理；读取报告的默认 HTTP 超时为 30 秒，与 `--eval-timeout` 指定的评分执行超时分开。使用新输出文件名再次执行 `resume`，可补齐剩余项并保存报告。
 
 ## 实验 3：从反馈定位偏差并回流案例
 
@@ -267,15 +294,15 @@ DeepSeek V4 Judge 默认关闭思考模式，以兼容分类评分所需的指�
 
 选择 L06-001 或其同义表达 L06-002，记录：
 
-| 字段                                                       | 记录 |
-| ---------------------------------------------------------- | ---- |
-| 应用版本、manifest、Experiment ID                          |      |
-| case ID、trial、message ID、conversation ID、原始 trace ID |      |
-| 用户原始要求                                               |      |
-| 工具参数与结果                                             |      |
-| 检索原文与最终 LLM 的输入                                  |      |
-| 最终建议、Judge 判断                                       |      |
-| 人工依据、首次偏差或未知项                                 |      |
+| 字段                                                       | 记录                               |
+| ---------------------------------------------------------- | ---------------------------------- |
+| 应用版本、manifest、Experiment ID                          | RXhwZXJpbWVudDozNQ                 |
+| case ID、trial、message ID、conversation ID、原始 trace ID | TraceID-course_authored；lab06-002 |
+| 用户原始要求                                               |                                    |
+| 工具参数与结果                                             |                                    |
+| 检索原文与最终 LLM 的输入                                  |                                    |
+| 最终建议、Judge 判断                                       |                                    |
+| 人工依据、首次偏差或未知项                                 |                                    |
 
 对自己的输出做人工场景核验：如果用户按建议游览，是否仍能满足其“全程坐轮椅”的要求？
 
@@ -294,7 +321,7 @@ DeepSeek V4 Judge 默认关闭思考模式，以兼容分类评分所需的指�
 
 ### 3. 新案例与成功对照
 
-复制案例文件到 `configs/local/lab06/datasets/cases-v2.jsonl`，准备后续回流版本：
+复制案例文件到 `configs/local/lab06/datasets/cases-v2.jsonl`，准备在副本中追加新失败，并保留 v1 供本轮比较：
 
 ```bash
 cp datasets/eval/tool-rag-improvement-v1/cases.jsonl configs/local/lab06/datasets/cases-v2.jsonl
@@ -304,7 +331,7 @@ cp datasets/eval/tool-rag-improvement-v1/cases.jsonl configs/local/lab06/dataset
 
 保留 L06-004、005、008、010 等成功对照。它们用于检查是否把“谨慎处理轮椅限制”修成了“拒绝所有出行建议”。原 trace 的模型回答不能直接作为金标。
 
-本轮单变量比较继续使用已冻结的 v1。新问题形成下一轮：
+本轮单变量比较继续使用已冻结的 v1。将补充后的案例写入 Phoenix 的 v2 数据集，准备下一轮回归：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py prepare \
@@ -316,7 +343,7 @@ uv run python scripts/run_phoenix_lab06_eval.py prepare \
 
 ## （扩展）实验 4： 人工复核打分器（Judge）
 
-在 12 条基线样本中，每条先选择第 1 次 trial，独立标注人工 `pass / fail / review`、理由和证据，再看 Judge 的评分。对轮椅、缺少日期、游客中心、只读能力等分歧，继续查看其余 trial。
+在 12 条基线样本中，每条先选择第 1 次 trial，独立标注人工 `pass / fail / review`、理由和证据，**再看 Judge 的评分**。对轮椅、缺少日期、游客中心、只读能力等分歧，继续查看其余 trial。
 
 记录：
 
@@ -325,10 +352,15 @@ uv run python scripts/run_phoenix_lab06_eval.py prepare \
 |              |      |       |                |            |
 
 根据这个记录，计算出有明确判断（非‘review‘）的样本的一致率（人工 = 自动），同时单独列出 review 的数量。
-误放行率，是人工 fail 但 Judge pass 的比例；误拒绝率，是人工 pass、Judge fail 的比例。
+**误放行率，是人工 fail 但 Judge pass 的比例；**
+
+**误拒绝率，是人工 pass、Judge fail 的比例。**
+
 要注意的是，如果没有对应的正例/负例，不能判断相应方向上的指标。--比如，假设只有正样本，且人工和自动打分器都是 pass，那就无法说明打分器是否有能力识别出错误（一个永远输出 pass 的打分器也能做到，但完全没用）。
 
-需要修订时，在 `configs/local/lab06/evaluators/` 中复制 `judge-v1.txt` 为 `judge-v2.txt`，只修改错误的判定规则，保留输入字段。对已保存的回答重新评分：
+需要修订时，在 `configs/local/lab06/evaluators/` 中复制 `judge-v1.txt` 为 `judge-v2.txt`，只修改错误的判定规则，保留输入字段。
+
+用修订后的 Judge 重评同一批已保存的回答，检查原有评分分歧是否得到处理：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py rejudge \
@@ -337,9 +369,108 @@ uv run python scripts/run_phoenix_lab06_eval.py rejudge \
   --output reports/local/lab06/baseline.rejudged.json
 ```
 
-该命令只调用 Judge，不重新执行 Dify。新评分器名称里会有一个（包含了 Prompt、服务入口和模型的）哈希值，旧评分会保留。
+该命令只调用 Judge，不重新执行 Dify。**新评分器名称里会有一个（包含了 Prompt、服务入口和模型的）哈希值**，旧评分会保留。
 
 有限样本上的修订只说明当前分歧得到处理。实验 6 冻结配置后，再用没有参与调整的 `secret` 案例及人工复核验证；不要提前用它挑选 Judge。比较基线与候选时，两版都使用最终确定的同一 Judge。
+
+### 分项评分器
+
+分项评分分别记录工具调用、检索、节点交接和最终回答的表现，用于定位首次偏差、选择需要修改的组件，并检查修改是否影响其他环节。关键违规单独记录，避免被其他项目的高分抵消。
+
+使用已保存的基线、候选回答及对应 trace，自行实现下列评分器：
+
+| 层级     | 评分器                     | 实现方式          | 检查内容与意义                                                                                                                                        |
+| -------- | -------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 工具     | `tool_selection_ok`        | 代码              | 对照必要、允许和禁止调用的工具，检查是否漏调或选错工具；区分工具选择错误与后续回答错误。需要先澄清日期的 case，应按参考要求检查是否正确没有调用工具。 |
+| 工具     | `tool_args_ok`             | 代码              | 核对实际参数的 Schema、城市、日期和筛选条件；识别工具选对但查询对象或条件错误的情况。                                                                 |
+| 工具     | `unexpected_tool_count`    | 代码              | 统计无任务依据的额外调用和重复调用，观察额外等待与调用开销；按 case 允许的查询和重试规则判断，多标签查询不能直接算作异常。                            |
+| 检索     | `required_evidence_recall` | 代码              | 计算检索结果覆盖了多少必要证据对象，判断回答所需的证据是否取得。                                                                                      |
+| 检索     | `context_precision`        | 代码或人工        | 计算返回对象中与问题相关的比例，观察无关内容对上下文的占用；与必要证据召回率配合，分别检查漏检和检索噪声。                                            |
+| 节点交接 | `constraints_preserved`    | 代码 + Judge      | 对照原始请求，检查摘要、检索 Query 和最终 LLM 输入是否保留各自需要的日期、轮椅条件及指定景点等约束；定位约束在传递中丢失或被改写的位置。              |
+| 回答     | `constraint_satisfaction`  | Judge             | 按 case 的验收要求判断最终建议是否满足用户约束；识别证据已到达最终模型，但建议仍违反要求的情况。                                                      |
+| 回答     | `groundedness`             | Judge             | 逐项核对事实性结论是否得到实际工具结果和检索原文支持；识别引用对象存在但原文不能支持结论、局部条件被扩大等情况。                                      |
+| 回答     | `capability_honesty`       | Judge             | 对照应用能力与实际执行记录，检查回答是否如实说明做过的操作；识别只完成查询却声称已经预订等表述。                                                      |
+| 安全     | `critical_violation`       | 代码 / 人工硬门禁 | 检查违反关键硬约束、编造操作成功或调用禁止写工具等事件；将关键失败独立作为阻止放行的条件。                                                            |
+
+操作步骤：
+
+1. 在本地扩展评分规则中，根据案例的 `tool_check`、`document_ids` 和 `acceptance` 整理预期工具、参数、必要证据、必须保留的约束与关键违规条件。为检索结果补充相关性标注；相关对象可以包含必要对象之外的补充证据。
+2. 按 `case_id / trial / trace_id` 关联原始请求、实际工具调用与返回、检索节点结果、节点交接内容、最终 LLM 输入和回答。工具评分读取实际调用记录，检索评分读取检索结果，交接评分读取接收节点的实际输入。
+3. 用代码实现能明确判定的规则，用 Judge 判断语义，并沿用本节的人工复核方法校准。每项保存评分器版本、结果、理由及对应证据；分别记录通过、失败、证据不足需复核和不适用，不能把缺少 trace 当作通过。
+4. 对同一批已保存的基线与候选运行使用同一版本评分器，逐项比较结果。保存每次 trial 的分项评分表和首次偏差位置，并列出工具参数、检索缺失、约束丢失或最终决策错误分别应依据哪些记录判断。
+
+两个检索指标采用对象 ID 去重后的集合计算：
+
+```text
+required_evidence_recall = 检索到的必要对象数 / 参考要求中的必要对象数
+context_precision = 返回结果中的相关对象数 / 所有返回对象数
+```
+
+有必要证据但未返回任何对象时，召回率为 `0`；分母为 `0` 的指标记为 `not_applicable`。缺少检索记录或相关性标注时记为 `review`，不填推测的数值。
+
+按实际 trace 的执行顺序汇总首次可观察到的偏差：
+
+```text
+first_failure_stage = tool | retrieval | handoff | decision | none | unknown
+```
+
+`handoff` 指节点间的信息传递，`decision` 指最终回答决策。只有适用环节的证据齐全且检查通过时才填 `none`；无法确定首次偏差时填 `unknown`。例如，工具参数正确、必要证据已检索到并进入最终 LLM，轮椅约束也保留在输入中，但回答仍承诺整个园区可达，可记录为 `decision`。首次偏差用于确定继续调查的位置，不直接等同于根因；已确认的 `critical_violation` 始终单独保留。
+
+#### Phoenix Dataset Splits
+
+Dataset Splits 将同一数据集中的案例组织为命名分组，用于筛选案例、运行专项评测和比较特定场景的结果。结合分项评分，可以分别查看轮椅场景的约束保留、缺少日期时的工具调用、只读场景的能力表述，避免总体均分掩盖某类问题。创建与分配操作见 [Phoenix Splits 官方说明](https://arize.com/docs/phoenix/datasets-and-experiments/how-to-experiments/splits)。
+
+课程案例的 `metadata.slices` 是普通元数据；现有 `prepare` 命令不会将它自动创建为 Phoenix 原生 Split。按以下步骤在 Phoenix 中配置：
+
+1. 打开 **Datasets → `lab06-tool-rag-v1`**，进入案例列表，通过输入中的 `case_id` 找到下表成员。
+2. 勾选同组案例，在 **Splits** 选择器中创建对应名称的分组，并将选中的案例分配进去。
+3. 逐个选择 Split 筛选列表，核对成员与数量；同一案例可以属于多个场景分组。
+
+| Split 名称            | 按现有`metadata.slices` 分配的案例           | 重点查看的分项评分                                                 |
+| --------------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| `wheelchair`          | `L06-001、002、003、004、005、007、011、012` | `constraints_preserved`、`constraint_satisfaction`、`groundedness` |
+| `success_control`     | `L06-004、005、008、010`                     | 成功对照的`constraint_satisfaction` 是否退化                       |
+| `missing_date`        | `L06-006`                                    | `tool_selection_ok` 是否确认未调用工具，回答是否先澄清日期         |
+| `capability_boundary` | `L06-011`                                    | `capability_honesty`、`critical_violation`                         |
+
+这些场景分组允许重叠，不能把各组数量或通过率直接相加。未分入这些组的案例仍保留在数据集中。若另用 Splits 划分调优集与最终测试集，应保持两组互不重叠；将已用于调优的案例改名为 `test`，不会使它重新成为独立测试样本。本文的 `secret` 仍按实验 6 使用独立 Dataset。
+
+完成分组后，在课程根目录读取基线所用数据集版本中的 `wheelchair` 成员，核对 Phoenix 实际筛选出的案例。下面命令只读取 Phoenix，不调用 Dify 或 Judge；若基线通过 `resume` 恢复，`report_path` 换成恢复后的报告路径：
+
+```bash
+uv run python - <<'PY'
+import json
+from pathlib import Path
+from scripts.run_phoenix_lab06_eval import Settings, phoenix_client
+
+report_path = Path("reports/local/lab06/baseline.json")
+report = json.loads(report_path.read_text())
+client = phoenix_client(Settings())
+split_name = "wheelchair"
+dataset = client.datasets.get_dataset(
+    dataset=report["dataset_id"],
+    version_id=report["dataset_version_id"],
+    splits=[split_name],
+)
+members = [
+    {"example_id": example["id"], "case_id": example["input"]["case_id"]}
+    for example in dataset.examples
+]
+print(json.dumps({
+    "dataset_id": report["dataset_id"],
+    "dataset_version_id": report["dataset_version_id"],
+    "split": split_name,
+    "count": len(members),
+    "members": members,
+}, ensure_ascii=False, indent=2))
+PY
+```
+
+预期读取到 8 条案例。依次替换 `split_name` 核对其他组，将分组名、Dataset 版本和成员 ID 保存到本地评分记录。然后按 `case_id / trial` 关联基线、候选的分项评分，逐组列出通过、失败、待复核数量，以及 `first_failure_stage` 的分布。案例数与 trial 数分开记录，评分缺失不能记为通过。
+
+若要只运行某个 Split，可在自行扩展的评测脚本中用上述 `get_dataset(..., splits=[...])` 取得子集，再将返回的 `dataset` 传给原有的 `run_experiment`。现有 `run_phoenix_lab06_eval.py run` 尚无 `--splits` 参数；仅在 UI 中筛选列表，不会改变该命令的运行范围。子集评测应另存报告，基线与候选使用相同成员、重复次数和评分器，不能与全量报告直接配对执行门禁。
+
+Split 的成员分配可以修改，Phoenix 的实验比较会使用基线实验运行时的成员快照。专项比较前应固定分组，并核对两版实际运行的案例 ID；已有实验后的分组分析应注明所用成员清单。Split 名称相同或 Dataset 版本相同，都不足以单独证明两次运行的分组成员一致。
 
 ## 实验 5：单变量修改与回归
 
@@ -361,9 +492,9 @@ uv run python scripts/run_phoenix_lab06_eval.py rejudge \
 - **Prompt**：把最终节点 System Prompt 的基础文本从 `answer-v0.txt` 换为 `answer-v1.txt`（两文件只差一段约束核对规则）。
 - **模型**：只更换最终回答模型（Agent 节点的模型保持不变）。记录服务商、模型名、可获得的版本和参数。如果换模型必须改其他配置（如 Deepseek 不支持名字中带`.`的工具，所以需要改工具名），需要同时标记。
 
-基线已经全部通过时，不保证候选能更好。可以比较*重复运行的稳定性和延迟*，结果没有改善就保留基线。
+**基线已经全部通过时，不保证候选能更好**。可以比较*重复运行的稳定性和延迟*，结果没有改善就保留基线。
 
-复制基线的参数和 Prompt，建立候选目录：
+复制基线的参数和 Prompt，建立候选目录，作为仅修改一项配置的起点：
 
 ```bash
 mkdir -p configs/local/lab06/candidate/prompts
@@ -374,6 +505,8 @@ cp -n configs/local/lab06/baseline/prompts/* configs/local/lab06/candidate/promp
 把 manifest.json 里的 `release_id` 改为 `lab06-prompt-v1` 或 `lab06-model-b`（会作为 Experiment 的名称），仅改变对应的 `answer_prompt_revision` 或 `answer_model`。如果是改 Prompt 候选，把课程 `answer-v1.txt` 复制到候选 `prompts/`，移除候选目录中不再使用的 `answer-v0.txt`，并同步到 Dify。发布候选并将 DSL 导出为 `configs/local/lab06/candidate/workflow.dify.yml`。
 
 ### 3. 同集复跑
+
+用候选应用重跑基线使用的同一版本数据集并评分，检查目标问题是否修复、原有成功案例是否退化：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py run \
@@ -389,11 +522,13 @@ uv run python scripts/run_phoenix_lab06_eval.py run \
 
 对每次 trial 检查整次请求耗时、实际工具调用次数和迭代终态。36 次请求的 p95 是课堂样本描述，不能当作生产容量结论。用量与费用字段缺失时写 `not_observed`；尚未核对全链聚合口径时，不用最终节点 Token 代替完整任务成本。
 
+> 使用新的Dify app 的 API key
+
 ## 实验 6：CI 门禁与版本判断
 
 ### 1. 完成人工复核
 
-复制脚本生成的候选复核模板：
+复制脚本生成的候选复核模板，准备逐条填写人工判断，供发布门禁核对：
 
 ```bash
 cp reports/local/lab06/candidate.reviews.template.jsonl reports/local/lab06/candidate.reviews.jsonl
@@ -410,6 +545,8 @@ cp reports/local/lab06/candidate.reviews.template.jsonl reports/local/lab06/cand
 核对原始检索 Context 与引用的语义支持。`task_result` 应包含这一判断，不能仅因为代码评分命中了对象 ID 就填 pass。
 
 ### 2. 执行检查
+
+将基线、候选报告和人工复核交给发布门禁，检查比较条件与任务结果，得到 `pass / block / review` 判断：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py check-release \
@@ -437,7 +574,7 @@ uv run python scripts/run_phoenix_lab06_eval.py check-release \
 
 公开开发集完成回归及门禁后，冻结基线、候选的 DSL、Prompt、manifest 和最终 Judge 配置，再运行 `secret`。这是 8 条课堂模拟案例的最终检查；不在看到测试结果后继续挑选本轮候选。
 
-准备独立 Dataset：
+将 secret 案例写入独立的 Phoenix 数据集，为冻结后的基线和候选准备最终测试：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py prepare \
@@ -447,7 +584,9 @@ uv run python scripts/run_phoenix_lab06_eval.py prepare \
 
 记录输出的 `dataset_version`，替换下面两个命令中的 `<secret 版本 ID>`。这里不能填写公开开发集的版本 ID。完整数据说明见 [secret README](../../datasets/eval/secret/README.md)。
 
-先在 Dify 中恢复并发布已冻结的**基线配置**，核对 `.env` 的 `DIFY_LAB06_API_KEY` 指向该应用。manifest 只记录配置，不会替你切换 Dify。执行：
+先在 Dify 中恢复并发布已冻结的**基线配置**，核对 `.env` 的 `DIFY_LAB06_API_KEY` 指向该应用。manifest 只记录配置，不会替你切换 Dify。
+
+在 secret 上运行基线并评分，取得最终测试的对照结果：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py run \
@@ -458,7 +597,9 @@ uv run python scripts/run_phoenix_lab06_eval.py run \
   --with-llm-judge --judge-prompt configs/local/lab06/evaluators/judge-v1.txt
 ```
 
-再恢复并发布已冻结的**候选配置**，核对应用 API key，然后执行：
+再恢复并发布已冻结的**候选配置**，核对应用 API key。
+
+在同一版本的 secret 上运行候选并评分，检查修改在未参与调优的案例上的表现：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py run \
@@ -471,14 +612,16 @@ uv run python scripts/run_phoenix_lab06_eval.py run \
 
 两条命令的 Judge 路径及 `.env` 中的 Judge 配置必须相同。若已采用 `judge-v2.txt`，两处都替换。默认在本步骤每题跑一次，两版合计 16 次 Dify 调用；需要检查重复运行时，两版都将 `--repetitions` 改成 `3`，合计 48 次。即使开发集每题跑三次，本步骤也可统一跑一次，但不能把开发集报告与 secret 报告互相配对比较。
 
-在 Phoenix 的 `secret` Dataset 下比较基线与候选 Experiment；同名实验通过 Dataset 和 Experiment ID 区分。对 secret 候选的全部 8 条 trial 填写人工复核；若每题三次则为 24 条。沿用本实验第 1 节的字段要求，并与当前 Judge 对照，记录分歧和待定项：
+在 Phoenix 的 `secret` Dataset 下比较基线与候选 Experiment；同名实验通过 Dataset 和 Experiment ID 区分。对 secret 候选的全部 8 条 trial 填写人工复核；若每题三次则为 24 条。沿用本实验第 1 节的字段要求，并与当前 Judge 对照，记录分歧和待定项。
+
+复制 secret 候选的复核模板，准备单独记录这组测试的人工判断：
 
 ```bash
 cp reports/local/lab06/secret/candidate.reviews.template.jsonl \
   reports/local/lab06/secret/candidate.reviews.jsonl
 ```
 
-填写完成后单独检查 secret 结果：
+填写完成后，对 secret 的基线、候选和人工复核单独执行门禁，判断最终测试是否通过：
 
 ```bash
 uv run python scripts/run_phoenix_lab06_eval.py check-release \
@@ -532,6 +675,8 @@ uv run python scripts/run_phoenix_lab06_eval.py check-release \
 ## 可选：模拟生产记录与安全发布判断
 
 13 条模拟 Trace、10 条人工／Judge 对照和 4 份候选报告仍保留在 `continuous-improvement-v1`。主实验完成后，用它们补充现场不一定出现的延迟反馈、隐私、重复样本、评分器错误和未授权副作用。
+
+先校验模拟记录、案例及其关联，保存离线数据检查报告，为后续判断练习准备材料：
 
 ```bash
 uv run python scripts/validate_continuous_improvement_cases.py \
