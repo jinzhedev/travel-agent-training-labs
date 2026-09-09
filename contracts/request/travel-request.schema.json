@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://training.example/contracts/travel-request.schema.json",
+  "title": "TravelRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "destination",
+    "start_date",
+    "end_date",
+    "travelers",
+    "budget_cny",
+    "preferences",
+    "hard_constraints",
+    "must_visit",
+    "avoid",
+    "free_text"
+  ],
+  "properties": {
+    "destination": {"type": "string", "minLength": 1},
+    "start_date": {"type": ["string", "null"], "format": "date"},
+    "end_date": {"type": ["string", "null"], "format": "date"},
+    "travelers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "count"],
+        "properties": {
+          "type": {"type": "string", "minLength": 1},
+          "count": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "budget_cny": {"type": ["number", "null"], "minimum": 0},
+    "preferences": {"type": "array", "items": {"type": "string"}},
+    "hard_constraints": {"type": "array", "items": {"type": "string"}},
+    "must_visit": {"type": "array", "items": {"type": "string"}},
+    "avoid": {"type": "array", "items": {"type": "string"}},
+    "free_text": {"type": "string"}
+  }
+}

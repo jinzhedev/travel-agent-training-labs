@@ -5,6 +5,7 @@
 - 前置：Lab 01 的天气、景点工具，Lab 03 的对象知识库，以及可访问的 Dify、Travel Core、Phoenix。
 - 主结构：`Start → Agent → Template → Knowledge Retrieval → LLM → Answer`。
 - 建议时间：150 分钟，搭建与冒烟约 25 分钟。
+- 目录：`configs/local/lab06/` 保存每版参数、Prompt、DSL 及共用评测输入；`reports/local/lab06/` 保存运行报告和复核结果。
 - 产物：两组版本与 Experiment、人工复核、门禁报告、发布观察与回退条件。
 
 新 [12 条金标](../../datasets/eval/tool-rag-improvement-v1/README.md)只引用已有权威语料和工具事实。旧 [模拟生产数据](../../datasets/eval/continuous-improvement-v1/README.md)作为可选补充。

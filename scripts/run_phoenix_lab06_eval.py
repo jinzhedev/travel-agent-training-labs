@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import dataclasses
 import hashlib
 import json
@@ -12,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from phoenix.client import Client
-from phoenix.client.experiments import evaluate_experiment, run_experiment
+from phoenix.client import AsyncClient, Client
+from phoenix.client.experiments import async_evaluate_experiment, run_experiment
 from phoenix.evals import LLM, ClassificationEvaluator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -33,6 +34,7 @@ from training_eval.lab06 import (
 
 DEFAULT_DATASET = "lab06-tool-rag-v1"
 DEFAULT_JUDGE = ROOT / "labs/06-evals-release/prompts/judge-v1.txt"
+PHOENIX_HTTP_TIMEOUT = 30
 
 
 class Settings(BaseSettings):
@@ -79,8 +81,15 @@ def build_judge(settings: Settings, prompt_path: Path) -> tuple[str, Classificat
         if not getattr(settings, key).strip():
             raise ValueError(f"缺少 {key.upper()}")
     prompt = prompt_path.read_text()
-    revision = digest({"prompt": prompt, "model": settings.judge_model,
-                       "provider": settings.judge_base_url})[:12]
+    invocation_parameters = {}
+    if settings.judge_model.startswith("deepseek-v4-"):
+        # Phoenix 分类评分强制调用指定函数；DeepSeek V4 的思考模式拒绝该 tool_choice。
+        invocation_parameters = {"extra_body": {"thinking": {"type": "disabled"}}}
+    revision_data = {"prompt": prompt, "model": settings.judge_model,
+                     "provider": settings.judge_base_url}
+    if invocation_parameters:
+        revision_data["invocation_parameters"] = invocation_parameters
+    revision = digest(revision_data)[:12]
     name = f"task_constraints_{revision}"
     evaluator = ClassificationEvaluator(
         name=name,
@@ -90,6 +99,7 @@ def build_judge(settings: Settings, prompt_path: Path) -> tuple[str, Classificat
                 async_client_kwargs={"api_key": settings.judge_api_key,
                                      "base_url": settings.judge_base_url}),
         prompt_template=prompt,
+        **invocation_parameters,
         choices={"pass": (1.0, "最终建议满足本例约束"),
                  "fail": (0.0, "最终建议违反本例约束"),
                  "review": (None, "证据不足，需要人工复核")},
@@ -163,7 +173,35 @@ def make_task(settings: Settings, http_client: httpx.Client, client: Client,
 def phoenix_client(settings: Settings) -> Client:
     if not settings.phoenix_endpoint:
         raise ValueError("缺少 PHOENIX_ENDPOINT")
-    return Client(base_url=settings.phoenix_endpoint, api_key=settings.phoenix_api_key or None)
+    headers = ({"Authorization": f"Bearer {settings.phoenix_api_key}"}
+               if settings.phoenix_api_key else {})
+    return Client(http_client=httpx.Client(
+        base_url=settings.phoenix_endpoint, headers=headers,
+        trust_env=False, timeout=PHOENIX_HTTP_TIMEOUT))
+
+
+def evaluate_concurrently(settings: Settings, experiment: dict, evaluators: dict,
+                          concurrency: int, timeout: int, *, resume: bool = False) -> dict:
+    """只并发评分；使用已完成的 task runs，不重新调用 Dify。"""
+    async def evaluate() -> dict:
+        headers = ({"Authorization": f"Bearer {settings.phoenix_api_key}"}
+                   if settings.phoenix_api_key else {})
+        async with httpx.AsyncClient(base_url=settings.phoenix_endpoint,
+                                     headers=headers, trust_env=False,
+                                     timeout=PHOENIX_HTTP_TIMEOUT) as http_client:
+            client = AsyncClient(http_client=http_client)
+            if resume:
+                await client.experiments.resume_evaluation(
+                    experiment_id=experiment["experiment_id"], evaluators=evaluators,
+                    concurrency=concurrency, retries=0, timeout=timeout)
+                print("评分执行结束，正在从 Phoenix 读取结果并保存报告……", flush=True)
+                return await client.experiments.get_experiment(
+                    experiment_id=experiment["experiment_id"])
+            return await async_evaluate_experiment(
+                client=client, experiment=experiment, evaluators=evaluators,
+                concurrency=concurrency, retries=0, timeout=timeout)
+
+    return asyncio.run(evaluate())
 
 
 def report_runs(experiment: dict, dataset) -> list[dict]:
@@ -200,12 +238,29 @@ def main() -> int:
     rejudge.add_argument("--report", type=Path, required=True)
     rejudge.add_argument("--judge-prompt", type=Path, default=DEFAULT_JUDGE)
     rejudge.add_argument("--output", type=Path, required=True)
+    rejudge.add_argument("--eval-timeout", type=int, default=180,
+                         help="单项评分超时秒数，默认 180")
+    resume = sub.add_parser("resume", help="只补缺失或执行失败的评分，不调用 Dify")
+    resume.add_argument("--report", type=Path, required=True)
+    resume.add_argument("--judge-prompt", type=Path, default=DEFAULT_JUDGE)
+    resume.add_argument("--output", type=Path, required=True)
+    resume.add_argument("--allow-judge-change", action="store_true",
+                        help="使用当前 Judge 版本；补齐该版本全部评分，保留旧版本评分")
+    resume.add_argument("--eval-timeout", type=int, default=600,
+                        help="单项评分超时秒数，默认 600")
     gate = sub.add_parser("check-release", help="对比固定条件并检查人工复核，退出码 0/1/2")
     gate.add_argument("--baseline", type=Path, required=True)
     gate.add_argument("--candidate", type=Path, required=True)
     gate.add_argument("--reviews", type=Path, required=True)
     gate.add_argument("--output", type=Path, required=True)
+    for command in (run, rejudge, resume):
+        command.add_argument("--eval-concurrency", type=int, default=4,
+                             help="评分并发数，默认 4；不改变 Dify 请求并发")
     args = parser.parse_args()
+    if args.command in {"run", "rejudge", "resume"} and args.eval_concurrency < 1:
+        parser.error("--eval-concurrency 必须为正整数")
+    if args.command in {"rejudge", "resume"} and args.eval_timeout < 1:
+        parser.error("--eval-timeout 必须为正整数")
     settings = Settings()
     if args.command == "check-release":
         result = release_check(json.loads(args.baseline.read_text()),
@@ -245,6 +300,47 @@ def main() -> int:
                            "dataset_version": dataset.version_id})
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    if args.command == "resume":
+        if args.output.exists():
+            raise ValueError("报告已存在；请用新路径，保留原始记录")
+        report = json.loads(args.report.read_text())
+        if not report.get("experiment_id") or not report.get("task_runs"):
+            raise ValueError("报告尚未保存应用运行结果；resume 只能续跑评分")
+        revision = hashlib.sha256((ROOT / "src/training_eval/lab06.py").read_bytes()).hexdigest()
+        if report.get("evaluator_revision") != revision:
+            raise ValueError("代码评分器已变化；请恢复原版本后续跑")
+        evaluators = {"response_available": response_available,
+                      "evidence_coverage": evidence_coverage, "citation_sources": citation_sources}
+        if report["judge_revision"] != "not_used":
+            name, judge = build_judge(settings, args.judge_prompt)
+            if name != report["judge_revision"] and not args.allow_judge_change:
+                raise ValueError("Judge 配置与原实验不同；请恢复原配置，或使用 rejudge 重评")
+            evaluators[name] = judge
+            report["judge_revision"] = name
+        client = phoenix_client(settings)
+        experiment = client.experiments.get_experiment(experiment_id=report["experiment_id"])
+        report.update({"status": "evaluating", "eval_concurrency": args.eval_concurrency,
+                       "eval_timeout": args.eval_timeout})
+        write_json(args.output, report)
+        evaluated = evaluate_concurrently(settings, experiment, evaluators,
+                                          args.eval_concurrency, args.eval_timeout, resume=True)
+        # 保留所有评分，包括没有数值分数的 review / not_applicable。
+        rows = [dataclasses.asdict(r) if dataclasses.is_dataclass(r) else r
+                for r in evaluated["evaluation_runs"]]
+        completed = {(r["experiment_run_id"], r["name"]) for r in rows
+                     if not r.get("error") and r.get("result") is not None}
+        required = {(r["id"], name) for r in evaluated["task_runs"] for name in evaluators}
+        pending = len(required - completed)
+        report.update({"status": "evaluating" if pending else "completed",
+                       "evaluation_runs": rows, "pending_evaluations": pending})
+        write_json(args.output, report)
+        review_path = args.output.with_suffix(".reviews.template.jsonl")
+        review_path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n"
+                                       for r in review_template(report)))
+        print(json.dumps({"experiment_id": report["experiment_id"], "dify_calls": 0,
+                          "pending_evaluations": pending, "report": str(args.output)},
+                         ensure_ascii=False))
+        return 1 if pending else 0
     if args.command == "rejudge":
         if args.output.exists():
             raise ValueError("重评报告已存在；请用新路径，保留原始评分")
@@ -252,9 +348,10 @@ def main() -> int:
         name, judge = build_judge(settings, args.judge_prompt)
         client = phoenix_client(settings)
         experiment = client.experiments.get_experiment(experiment_id=report["experiment_id"])
-        evaluated = evaluate_experiment(client=client, experiment=experiment,
-                                       evaluators={name: judge}, retries=0, timeout=180)
-        report.update({"judge_revision": name, "evaluation_runs": evaluated["evaluation_runs"]})
+        evaluated = evaluate_concurrently(settings, experiment, {name: judge},
+                                          args.eval_concurrency, args.eval_timeout)
+        report.update({"judge_revision": name, "evaluation_runs": evaluated["evaluation_runs"],
+                       "eval_concurrency": args.eval_concurrency})
         write_json(args.output, report)
         print(json.dumps({"experiment_id": report["experiment_id"], "judge_revision": name,
                           "dify_calls": 0, "report": str(args.output)}, ensure_ascii=False))
@@ -291,18 +388,24 @@ def main() -> int:
         "expected_case_ids": [e["input"]["case_id"] for e in dataset.examples],
         "repetitions": args.repetitions, "manifest": manifest, "source_versions": sources,
         "evaluator_revision": hashlib.sha256((ROOT / "src/training_eval/lab06.py").read_bytes()).hexdigest(),
-        "judge_revision": judge_name,
+        "judge_revision": judge_name, "eval_concurrency": args.eval_concurrency,
     }
     write_json(args.output, report)
     with httpx.Client(timeout=args.timeout, trust_env=False) as http_client:
         experiment = run_experiment(client=client, dataset=dataset,
             task=make_task(settings, http_client, client, args.trace_project,
                            args.output.with_suffix(".requests.jsonl")),
-            evaluators=evaluators, experiment_name=manifest["release_id"],
+            experiment_name=manifest["release_id"],
             experiment_description="Lab 06：工具、文档和决策的持续改进评测",
             experiment_metadata={"manifest": manifest, "source_versions": sources,
                                  "judge_revision": judge_name},
             repetitions=args.repetitions, retries=0, timeout=int(args.timeout + 30))
+    # 先保存已完成的回答；评分中断时仍可追溯原实验，不必重跑 Dify。
+    report.update({"status": "evaluating", "experiment_id": experiment["experiment_id"],
+                   "task_runs": report_runs(experiment, dataset), "evaluation_runs": []})
+    write_json(args.output, report)
+    experiment = evaluate_concurrently(settings, experiment, evaluators,
+                                       args.eval_concurrency, int(args.timeout + 30))
     report.update({"status": "completed", "experiment_id": experiment["experiment_id"],
                    "task_runs": report_runs(experiment, dataset),
                    "evaluation_runs": experiment["evaluation_runs"]})

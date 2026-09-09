@@ -8,7 +8,7 @@
   "query_template_revision": "query-v1",
   "knowledge_revision": "xiamen-document-ai-v1.0.1",
   "retrieval": {
-    "knowledge_base": "<XM-Guide-Object 的知识库 ID>",
+    "knowledge_base": "",
     "embedding": "<Lab 03 实际使用的 embedding>",
     "search": "<节点实际检索方式>",
     "top_k": 6,

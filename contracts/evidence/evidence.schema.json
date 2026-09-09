@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://training.example/contracts/evidence.schema.json",
+  "title": "Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_id",
+    "source_type",
+    "title",
+    "snippet",
+    "observed_at",
+    "valid_until",
+    "confidence"
+  ],
+  "properties": {
+    "evidence_id": {"type": "string", "minLength": 1},
+    "source_type": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "snippet": {"type": "string", "minLength": 1},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "valid_until": {"type": ["string", "null"], "format": "date-time"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}
